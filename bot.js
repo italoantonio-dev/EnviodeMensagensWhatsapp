@@ -796,16 +796,13 @@ async function start() {
         const isConflict440 = Number(statusCode) === 440
         const precisaResetAuth =
           statusCode === DisconnectReason.loggedOut ||
-          statusCode === DisconnectReason.badSession ||
-          isConflict440
+          statusCode === DisconnectReason.badSession
 
         if (precisaResetAuth && !authResetadoNoCiclo) {
           authResetadoNoCiclo = true
           limparAuthBaileys()
           salvarStatusBot({
-            logMessage: isConflict440
-              ? 'Conflito de sessão detectado (440). Resetando autenticação para gerar nova sessão estável.'
-              : 'Sessão inválida detectada. Resetando autenticação para reconexão.',
+            logMessage: 'Sessão inválida detectada. Resetando autenticação para reconexão.',
             logLevel: 'warn',
             logSource: 'connection'
           })
@@ -814,8 +811,8 @@ async function start() {
         const conflitoPersistente = isConflict440 && rapidDisconnects >= 3
         if (conflitoPersistente) {
           salvarStatusBot({
-            lastError: 'Conflito de sessão (440) recorrente. Aguardando nova autenticação via QR.',
-            logMessage: 'Conflito 440 recorrente detectado. Reconexão foi desacelerada para evitar loop.',
+            lastError: 'Conflito de sessão (440) recorrente. Mantendo autenticação salva e tentando reconectar automaticamente.',
+            logMessage: 'Conflito 440 recorrente detectado. A autenticação foi preservada e a reconexão foi desacelerada.',
             logLevel: 'warn',
             logSource: 'connection'
           })
