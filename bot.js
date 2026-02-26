@@ -325,7 +325,7 @@ function agendarCronsUmaVez() {
     }
   }, { timezone: BLUE_STAR_TIMEZONE })
 
-  cron.schedule('*/1 * * * *', async () => {
+  cron.schedule('*/10 * * * * *', async () => {
     try {
       await processarFilaDisparos(activeSock)
     } catch (err) {
