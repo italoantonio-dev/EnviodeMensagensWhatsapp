@@ -1,0 +1,22 @@
+[
+  {
+    "name": "João Silva",
+    "type": "private",
+    "destination": "5534988776655"
+  },
+  {
+    "name": "Maria Santos",
+    "type": "private",
+    "destination": "5534987654321"
+  },
+  {
+    "name": "Equipe Vendas",
+    "type": "group",
+    "destination": "120363331234567890@g.us"
+  },
+  {
+    "name": "Diretoria",
+    "type": "group",
+    "destination": "120363331234567891@g.us"
+  }
+]

@@ -4,6 +4,9 @@ import path from 'path'
 import dotenv from 'dotenv'
 import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
+import fileUpload from 'express-fileupload'
+import XLSX from 'xlsx'
+import xml2js from 'xml2js'
 import {
   recipientsDb,
   dispatchesDb,
@@ -310,6 +313,7 @@ app.use((req, res, next) => {
   next()
 })
 app.use(express.static(path.join(__dirname, 'public')))
+app.use(fileUpload({ limits: { fileSize: 50 * 1024 * 1024 } }))
 app.use('/api', (req, _res, next) => {
   _res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
   _res.setHeader('Pragma', 'no-cache')
@@ -387,6 +391,137 @@ app.post('/api/recipients', async (req, res) => {
     }
 
     res.status(500).json({ ok: false, message: `Falha ao adicionar destinatário: ${error.message}` })
+  }
+})
+
+app.post('/api/import-recipients', async (req, res) => {
+  try {
+    if (!req.files || !req.files.file) {
+      res.status(400).json({ ok: false, message: 'Nenhum arquivo foi enviado.' })
+      return
+    }
+
+    const file = req.files.file
+    const filename = file.name.toLowerCase()
+    let recipients = []
+
+    if (filename.endsWith('.json')) {
+      const jsonData = JSON.parse(file.data.toString('utf-8'))
+      recipients = Array.isArray(jsonData) ? jsonData : (jsonData.recipients || [])
+    } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
+      const workbook = XLSX.read(file.data, { type: 'buffer' })
+      const sheetName = workbook.SheetNames[0]
+      if (!sheetName) {
+        res.status(400).json({ ok: false, message: 'Arquivo Excel vazio ou sem abas.' })
+        return
+      }
+      const worksheet = workbook.Sheets[sheetName]
+      recipients = XLSX.utils.sheet_to_json(worksheet)
+    } else if (filename.endsWith('.xml')) {
+      const xmlParser = new xml2js.Parser({ explicitArray: false })
+      const xmlData = await xmlParser.parseStringPromise(file.data.toString('utf-8'))
+      recipients = xmlData.recipients?.recipient || []
+      if (!Array.isArray(recipients)) {
+        recipients = [recipients]
+      }
+    } else {
+      res.status(400).json({ ok: false, message: 'Formato não suportado. Use JSON, XLSX ou XML.' })
+      return
+    }
+
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      res.status(400).json({ ok: false, message: 'Nenhum destinatário encontrado no arquivo.' })
+      return
+    }
+
+    const results = {
+      imported: [],
+      errors: [],
+      duplicates: []
+    }
+
+    for (let i = 0; i < recipients.length; i++) {
+      const item = recipients[i]
+      const name = sanitizeText(item.name || item.nome || '')
+      const type = sanitizeText(item.type || item.tipo || 'private')
+      const destination = sanitizeText(item.destination || item.destino || item.numero || item.number || '')
+
+      if (!name) {
+        results.errors.push({
+          row: i + 2,
+          reason: 'Nome não informado'
+        })
+        continue
+      }
+
+      if (!['private', 'group'].includes(type)) {
+        results.errors.push({
+          row: i + 2,
+          reason: `Tipo inválido: ${type}. Use 'private' ou 'group'`
+        })
+        continue
+      }
+
+      if (!destination) {
+        results.errors.push({
+          row: i + 2,
+          reason: 'Destino não informado'
+        })
+        continue
+      }
+
+      const jid = normalizeRecipientJid(type, destination)
+      if (!jid) {
+        results.errors.push({
+          row: i + 2,
+          reason: type === 'group' 
+            ? 'Grupo inválido. Use ID com @g.us ou link de convite'
+            : 'Número inválido. Use formato DDI + número'
+        })
+        continue
+      }
+
+      try {
+        const existing = await recipientsDb.findOne({ jid })
+        if (existing) {
+          results.duplicates.push({
+            name,
+            jid,
+            message: 'Já existe destinatário com este JID'
+          })
+          continue
+        }
+
+        const insertedItem = await recipientsDb.insert({
+          name,
+          type,
+          destination,
+          jid,
+          isDefault: false,
+          isCycleTarget: false
+        })
+
+        results.imported.push({
+          name,
+          type,
+          jid
+        })
+      } catch (error) {
+        results.errors.push({
+          row: i + 2,
+          reason: `Erro ao importar: ${error.message}`
+        })
+      }
+    }
+
+    res.json({
+      ok: true,
+      message: `Importação concluída: ${results.imported.length} importado(s), ${results.duplicates.length} duplicado(s), ${results.errors.length} erro(s)`,
+      results
+    })
+  } catch (error) {
+    console.error('Erro ao importar destinatários:', error)
+    res.status(500).json({ ok: false, message: `Falha na importação: ${error.message}` })
   }
 })
 

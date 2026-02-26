@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<recipients>
+  <recipient>
+    <name>João Silva</name>
+    <type>private</type>
+    <destination>5534988776655</destination>
+  </recipient>
+  <recipient>
+    <name>Maria Santos</name>
+    <type>private</type>
+    <destination>5534987654321</destination>
+  </recipient>
+  <recipient>
+    <name>Equipe Vendas</name>
+    <type>group</type>
+    <destination>120363331234567890@g.us</destination>
+  </recipient>
+  <recipient>
+    <name>Diretoria</name>
+    <type>group</type>
+    <destination>120363331234567891@g.us</destination>
+  </recipient>
+</recipients>

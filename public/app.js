@@ -761,6 +761,46 @@ async function addRecipient() {
   setStatus('Destinatário adicionado com sucesso.', 'success')
 }
 
+async function importRecipients() {
+  const fileInput = document.getElementById('importRecipientsFile')
+  const file = fileInput.files[0]
+
+  if (!file) {
+    throw new Error('Selecione um arquivo para importar.')
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch('/api/import-recipients', {
+    method: 'POST',
+    body: formData,
+    cache: 'no-store'
+  })
+
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(data.message || 'Falha ao importar destinatários.')
+  }
+
+  fileInput.value = ''
+  await carregarDadosBanco()
+
+  const { imported = 0, duplicates = 0, errors = 0 } = data.results || {}
+  const message = `Importação: ${imported} importado(s), ${duplicates} duplicado(s), ${errors} erro(s).`
+
+  if (errors > 0 || duplicates > 0) {
+    if (data.results?.errors?.length > 0) {
+      const errDetail = data.results.errors.slice(0, 3).map((e) => `Linha ${e.row}: ${e.reason}`).join('\n')
+      setStatus(`${message}\n\n${errDetail}`, 'warning')
+    } else {
+      setStatus(message, 'warning')
+    }
+  } else {
+    setStatus(message, 'success')
+  }
+}
+
 async function createDispatch() {
   const recipientIds = Array.from(dispatchRecipient.selectedOptions).map((option) => option.value).filter(Boolean)
   const sourceType = dispatchSourceType.value
@@ -1034,6 +1074,18 @@ document.getElementById('addRecipientBtn').addEventListener('click', async () =>
     await addRecipient()
   } catch (error) {
     setStatus(error.message || 'Erro ao adicionar destinatário.', 'error')
+  }
+})
+
+document.getElementById('importRecipientsBtn').addEventListener('click', () => {
+  document.getElementById('importRecipientsFile').click()
+})
+
+document.getElementById('importRecipientsFile').addEventListener('change', async () => {
+  try {
+    await importRecipients()
+  } catch (error) {
+    setStatus(error.message || 'Erro ao importar destinatários.', 'error')
   }
 })
 
