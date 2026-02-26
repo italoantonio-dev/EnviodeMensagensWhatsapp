@@ -515,6 +515,10 @@ async function enviarMensagemDispatch(sock, recipient, mensagem) {
     return
   }
 
+  if (!sock || typeof sock.sendMessage !== 'function') {
+    throw new Error('WhatsApp desconectado no momento do envio. Reconecte o bot e tente novamente.')
+  }
+
   const jidDestino = await resolverJidDestinatario(sock, recipient)
   if (!jidDestino) {
     throw new Error('Destino inválido para o tipo de destinatário. Para grupo use ID @g.us ou link de convite; para privado use número válido.')
@@ -765,42 +769,82 @@ async function start() {
           logLevel: 'info',
           logSource: 'connection'
         })
-        await processarFilaDisparos(sock)
+        try {
+          await processarFilaDisparos(sock)
+        } catch (err) {
+          salvarStatusBot({
+            lastError: err.message || 'Falha ao processar fila após reconexão.',
+            logMessage: `Erro ao processar fila após reconexão: ${err.message || 'erro desconhecido'}`,
+            logLevel: 'error',
+            logSource: 'dispatch'
+          })
+        }
       }
     })
 
     sock.ev.on('creds.update', saveCreds)
 
     sock.ev.on('messages.upsert', async ({ messages }) => {
-      const msg = messages[0]
-      if (!msg?.message || msg.key.fromMe) return
+      try {
+        const msg = messages[0]
+        if (!msg?.message || msg.key.fromMe) return
 
-      const from = msg.key.remoteJid
-      const body = msg.message.conversation || msg.message.extendedTextMessage?.text || ''
-      const bodyNormalizado = body.trim().toLowerCase()
+        const from = msg.key.remoteJid
+        const body = msg.message.conversation || msg.message.extendedTextMessage?.text || ''
+        const bodyNormalizado = body.trim().toLowerCase()
 
-      if (bodyNormalizado === '!comandos') {
-        await sock.sendMessage(from, {
-          text: `*Comandos disponíveis:*\n\n!info  mostra informações do ciclo atual\n\n!comandos  envia essa mensagem`
-        })
-      } else if (bodyNormalizado === '!info') {
-        const diaDoCiclo = obterDiaDoCicloAtual()
-        const itemCiclo = obterMensagemDiaCiclo(diaDoCiclo)
-        const cycle = loadCycleConfig()
-
-        if (!cycle.length) {
-          await sock.sendMessage(from, { text: 'Nenhum ciclo configurado. Configure no painel!' })
-        } else if (itemCiclo) {
+        if (bodyNormalizado === '!comandos') {
           await sock.sendMessage(from, {
-            text: `*Ciclo Blue Star*\n\nDia: ${diaDoCiclo + 1}/${cycle.length}\n\nHorário: ${itemCiclo.timeHHmm}\n\nMensagem:\n${itemCiclo.message}`
+            text: `*Comandos disponíveis:*\n\n!info  mostra informações do ciclo atual\n\n!comandos  envia essa mensagem`
           })
+        } else if (bodyNormalizado === '!info') {
+          const diaDoCiclo = obterDiaDoCicloAtual()
+          const itemCiclo = obterMensagemDiaCiclo(diaDoCiclo)
+          const cycle = loadCycleConfig()
+
+          if (!cycle.length) {
+            await sock.sendMessage(from, { text: 'Nenhum ciclo configurado. Configure no painel!' })
+          } else if (itemCiclo) {
+            await sock.sendMessage(from, {
+              text: `*Ciclo Blue Star*\n\nDia: ${diaDoCiclo + 1}/${cycle.length}\n\nHorário: ${itemCiclo.timeHHmm}\n\nMensagem:\n${itemCiclo.message}`
+            })
+          }
         }
+      } catch (err) {
+        salvarStatusBot({
+          lastError: err.message || 'Falha ao processar mensagem recebida.',
+          logMessage: `Erro no listener de mensagens: ${err.message || 'erro desconhecido'}`,
+          logLevel: 'error',
+          logSource: 'listener'
+        })
       }
     })
   } finally {
     startingBaileys = false
   }
 }
+
+process.on('unhandledRejection', (reason) => {
+  const message = reason instanceof Error ? reason.message : String(reason)
+  salvarStatusBot({
+    lastError: `UnhandledRejection: ${message}`,
+    logMessage: `UnhandledRejection capturado: ${message}`,
+    logLevel: 'error',
+    logSource: 'process'
+  })
+  console.log('UnhandledRejection capturado:', message)
+})
+
+process.on('uncaughtException', (error) => {
+  const message = error?.message || 'erro desconhecido'
+  salvarStatusBot({
+    lastError: `UncaughtException: ${message}`,
+    logMessage: `UncaughtException capturada: ${message}`,
+    logLevel: 'error',
+    logSource: 'process'
+  })
+  console.log('UncaughtException capturada:', message)
+})
 
 setInterval(() => {
   processarComandoBotPendente().catch((err) => {
