@@ -23,6 +23,8 @@ let activeSock = null
 let cronJobsIniciados = false
 let processandoFila = false
 let ultimoComandoProcessadoEm = ''
+let lastConnectionOpenedAtMs = 0
+let rapidDisconnects = 0
 
 const SEND_PROVIDER = (process.env.SEND_PROVIDER || 'baileys').trim().toLowerCase()
 const WA_CLOUD_API_VERSION = (process.env.WA_CLOUD_API_VERSION || 'v21.0').trim()
@@ -714,6 +716,14 @@ async function start() {
       if (connection === 'close') {
         const statusCode = obterCodigoDesconexao(lastDisconnect)
         const mensagemErro = obterMensagemDesconexao(lastDisconnect)
+        const nowMs = Date.now()
+        const openedRecently = lastConnectionOpenedAtMs > 0 && (nowMs - lastConnectionOpenedAtMs) < 15000
+
+        if (openedRecently) {
+          rapidDisconnects += 1
+        } else {
+          rapidDisconnects = 0
+        }
 
         if (activeSock === sock) {
           activeSock = null
@@ -728,17 +738,42 @@ async function start() {
           logSource: 'connection'
         })
 
-        const precisaResetAuth = statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession
+        const isConflict440 = Number(statusCode) === 440
+        const precisaResetAuth =
+          statusCode === DisconnectReason.loggedOut ||
+          statusCode === DisconnectReason.badSession ||
+          isConflict440
+
         if (precisaResetAuth && !authResetadoNoCiclo) {
           authResetadoNoCiclo = true
           limparAuthBaileys()
+          salvarStatusBot({
+            logMessage: isConflict440
+              ? 'Conflito de sessão detectado (440). Resetando autenticação para gerar nova sessão estável.'
+              : 'Sessão inválida detectada. Resetando autenticação para reconexão.',
+            logLevel: 'warn',
+            logSource: 'connection'
+          })
+        }
+
+        const conflitoPersistente = isConflict440 && rapidDisconnects >= 3
+        if (conflitoPersistente) {
+          salvarStatusBot({
+            lastError: 'Conflito de sessão (440) recorrente. Aguardando nova autenticação via QR.',
+            logMessage: 'Conflito 440 recorrente detectado. Reconexão foi desacelerada para evitar loop.',
+            logLevel: 'warn',
+            logSource: 'connection'
+          })
         }
 
         if (statusCode !== DisconnectReason.loggedOut) {
           if (!reconnectScheduled) {
             reconnectScheduled = true
             reconnectTentativas += 1
-            const esperaMs = Math.min(3000 + (reconnectTentativas - 1) * 2000, 20000)
+            const baseMs = conflitoPersistente ? 15000 : 3000
+            const stepMs = conflitoPersistente ? 4000 : 2000
+            const maxMs = conflitoPersistente ? 45000 : 20000
+            const esperaMs = Math.min(baseMs + (reconnectTentativas - 1) * stepMs, maxMs)
             console.log(`Conexão caiu (código: ${statusCode || 'desconhecido'}). Nova tentativa em ${Math.floor(esperaMs / 1000)}s...`)
             setTimeout(() => {
               reconnectScheduled = false
@@ -758,6 +793,8 @@ async function start() {
       } else if (connection === 'open') {
         reconnectTentativas = 0
         authResetadoNoCiclo = false
+        rapidDisconnects = 0
+        lastConnectionOpenedAtMs = Date.now()
         activeSock = sock
         console.log('Bot conectado ao WhatsApp com sucesso.')
         salvarStatusBot({
