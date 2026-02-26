@@ -12,7 +12,6 @@ import {
   dispatchesDb,
   initDatabase,
   normalizeRecipientJid,
-  normalizePrivateDestinationBr,
   parseBrDateTime,
   formatDateTimeBr,
   loadCycleConfig,
@@ -133,6 +132,41 @@ function validarPayload(payload) {
 
 function sanitizeText(value) {
   return (value || '').toString().trim()
+}
+
+function normalizePrivateDestinationBr(input) {
+  const value = (input || '').toString().trim()
+  if (!value) return ''
+
+  let digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2)
+  }
+
+  if (digits.startsWith('55')) {
+    if (digits.length === 14 && digits[2] === '0') {
+      digits = `55${digits.slice(3)}`
+    }
+  } else if (digits.length === 10 || digits.length === 11) {
+    digits = `55${digits}`
+  } else {
+    return ''
+  }
+
+  if (digits.length !== 12 && digits.length !== 13) {
+    return ''
+  }
+
+  const ddd = digits.slice(2, 4)
+  const local = digits.slice(4)
+
+  if (local.length === 8) {
+    return `+55 (${ddd}) ${local.slice(0, 4)}-${local.slice(4)}`
+  }
+
+  return `+55 (${ddd}) ${local.slice(0, 5)}-${local.slice(5)}`
 }
 
 async function migrarDestinatariosPrivadosPadraoBr() {
