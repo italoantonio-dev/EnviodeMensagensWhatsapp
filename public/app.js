@@ -70,6 +70,7 @@ let currentCycleName = ''
 let editingRecipientId = ''
 let editingCycleIndex = -1
 const knownBotEventIds = new Set()
+const BOT_POLL_INTERVAL_MS = 2000
 
 const configuredApiBaseUrl = ((window.APP_API_BASE_URL || '').toString().trim()).replace(/\/$/, '')
 const nativeFetch = window.fetch.bind(window)
@@ -626,7 +627,7 @@ async function carregarQrBot() {
   }
 
   try {
-    const response = await fetch('/api/bot-qr')
+    const response = await fetch(`/api/bot-qr?t=${Date.now()}`, { cache: 'no-store' })
     const data = await response.json()
 
     if (data.connected) {
@@ -675,7 +676,7 @@ async function iniciarBotPainel() {
   }
 
   await carregarQrBot()
-  const botStatusResponse = await fetch('/api/bot-status')
+  const botStatusResponse = await fetch(`/api/bot-status?t=${Date.now()}`, { cache: 'no-store' })
   const botStatus = await botStatusResponse.json()
   renderBotStatus(botStatus)
   setStatus(data.message || 'Bot iniciado com sucesso.', 'success')
@@ -685,7 +686,7 @@ async function carregarDadosBanco() {
   const [recipientsRes, dispatchesRes, botStatusRes] = await Promise.all([
     fetch('/api/recipients'),
     fetch('/api/dispatches'),
-    fetch('/api/bot-status')
+    fetch(`/api/bot-status?t=${Date.now()}`, { cache: 'no-store' })
   ])
 
   const recipients = await recipientsRes.json()
@@ -1153,10 +1154,10 @@ async function bootstrap() {
 
   setInterval(async () => {
     await carregarQrBot()
-    const botStatusResponse = await fetch('/api/bot-status')
+    const botStatusResponse = await fetch(`/api/bot-status?t=${Date.now()}`, { cache: 'no-store' })
     const botStatus = await botStatusResponse.json()
     renderBotStatus(botStatus)
-  }, 5000)
+  }, BOT_POLL_INTERVAL_MS)
 }
 
 bootstrap()

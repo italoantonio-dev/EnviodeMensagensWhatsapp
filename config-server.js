@@ -297,6 +297,9 @@ app.use((req, res, next) => {
 })
 app.use(express.static(path.join(__dirname, 'public')))
 app.use('/api', (req, _res, next) => {
+  _res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  _res.setHeader('Pragma', 'no-cache')
+  _res.setHeader('Expires', '0')
   sincronizarBancos()
     .then(() => next())
     .catch((err) => {

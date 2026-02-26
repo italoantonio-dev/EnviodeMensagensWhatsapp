@@ -243,6 +243,11 @@ async function processarComandoBotPendente() {
   }
 
   const requestedAt = (comando.requestedAt || '').toString().trim()
+  const processedAt = (comando.processedAt || '').toString().trim()
+  if (processedAt) {
+    return
+  }
+
   if (!requestedAt || requestedAt === ultimoComandoProcessadoEm) {
     return
   }
