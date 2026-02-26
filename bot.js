@@ -14,6 +14,7 @@ const BLUE_STAR_TIMEZONE = 'America/Sao_Paulo'
 const BOT_STATUS_ARQUIVO = './data/bot-status.json'
 const BOT_COMMAND_ARQUIVO = './data/bot-command.json'
 const BAILEYS_AUTH_DIR = './baileys-auth'
+const MAX_STATUS_EVENTS = 200
 let reconnectScheduled = false
 let reconnectTentativas = 0
 let authResetadoNoCiclo = false
@@ -146,9 +147,33 @@ function podeEnviarAgora(config) {
 
 function salvarStatusBot(status) {
   const atual = lerStatusBot()
+  const eventosAtuais = Array.isArray(atual.events) ? atual.events : []
+  const logMessage = (status.logMessage || '').toString().trim()
+  const logLevel = (status.logLevel || 'info').toString().trim().toLowerCase() || 'info'
+  const logSource = (status.logSource || 'bot').toString().trim().toLowerCase() || 'bot'
+
+  const eventos = logMessage
+    ? [
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        at: new Date().toISOString(),
+        level: logLevel,
+        source: logSource,
+        message: logMessage
+      },
+      ...eventosAtuais
+    ].slice(0, MAX_STATUS_EVENTS)
+    : eventosAtuais
+
+  const statusSemLogs = { ...status }
+  delete statusSemLogs.logMessage
+  delete statusSemLogs.logLevel
+  delete statusSemLogs.logSource
+
   const merged = {
     ...atual,
-    ...status,
+    ...statusSemLogs,
+    events: eventos,
     updatedAt: new Date().toISOString()
   }
   fs.writeFileSync(BOT_STATUS_ARQUIVO, JSON.stringify(merged, null, 2), 'utf-8')
@@ -163,7 +188,8 @@ function lerStatusBot() {
       lastError: '',
       lastQueueRunAt: '',
       lastSentAt: '',
-      qrDataUrl: ''
+      qrDataUrl: '',
+      events: []
     }
   }
 
@@ -177,7 +203,8 @@ function lerStatusBot() {
       lastError: '',
       lastQueueRunAt: '',
       lastSentAt: '',
-      qrDataUrl: ''
+      qrDataUrl: '',
+      events: []
     }
   }
 }
@@ -227,7 +254,10 @@ async function processarComandoBotPendente() {
   salvarStatusBot({
     connected: false,
     qrDataUrl: '',
-    lastError: 'Sessão desconectada manualmente. Gerando novo QR...'
+    lastError: 'Sessão desconectada manualmente. Gerando novo QR...',
+    logMessage: 'Comando de desconexão recebido pelo painel. Reiniciando sessão do WhatsApp.',
+    logLevel: 'warn',
+    logSource: 'command'
   })
 
   if (activeSock) {
@@ -562,7 +592,13 @@ async function processarFilaDisparos(sock) {
         { _id: item._id },
         { $set: { status: 'sent', sentAt: new Date().toISOString(), errorMessage: '' } }
       )
-      salvarStatusBot({ lastSentAt: new Date().toISOString(), lastError: '' })
+      salvarStatusBot({
+        lastSentAt: new Date().toISOString(),
+        lastError: '',
+        logMessage: `Mensagem enviada para ${recipient.name || recipient.destination || recipient._id}.`,
+        logLevel: 'info',
+        logSource: 'dispatch'
+      })
 
       if (config.intervaloSegundos > 0) {
         await new Promise((resolve) => setTimeout(resolve, config.intervaloSegundos * 1000))
@@ -572,7 +608,12 @@ async function processarFilaDisparos(sock) {
         { _id: item._id },
         { $set: { status: 'failed', errorMessage: err.message || 'Falha no envio.' } }
       )
-      salvarStatusBot({ lastError: err.message || 'Falha no envio' })
+      salvarStatusBot({
+        lastError: err.message || 'Falha no envio',
+        logMessage: `Falha no envio para ${recipient.name || recipient.destination || recipient._id}: ${err.message || 'erro desconhecido'}`,
+        logLevel: 'error',
+        logSource: 'dispatch'
+      })
     }
   }
   } finally {
@@ -582,18 +623,34 @@ async function processarFilaDisparos(sock) {
 
 async function start() {
   await initDatabase()
-  salvarStatusBot({ connected: false, updatedAt: new Date().toISOString() })
+  salvarStatusBot({
+    connected: false,
+    updatedAt: new Date().toISOString(),
+    logMessage: 'Inicializando processo do bot.',
+    logLevel: 'info',
+    logSource: 'boot'
+  })
   agendarCronsUmaVez()
 
   if (isMetaCloudMode()) {
     if (!isMetaCloudConfigured()) {
       salvarStatusBot({
         connected: false,
-        lastError: 'Modo API ativo, mas credenciais da Meta Cloud API não configuradas.'
+        lastError: 'Modo API ativo, mas credenciais da Meta Cloud API não configuradas.',
+        logMessage: 'Falha de configuração: credenciais da Meta Cloud API ausentes.',
+        logLevel: 'error',
+        logSource: 'config'
       })
       console.log('Modo API ativo, mas faltam credenciais WA_CLOUD_PHONE_NUMBER_ID/WA_CLOUD_ACCESS_TOKEN.')
     } else {
-      salvarStatusBot({ connected: true, connectionOpenedAt: new Date().toISOString(), lastError: '' })
+      salvarStatusBot({
+        connected: true,
+        connectionOpenedAt: new Date().toISOString(),
+        lastError: '',
+        logMessage: 'Bot conectado em modo API (Meta Cloud).',
+        logLevel: 'info',
+        logSource: 'connection'
+      })
       console.log('Bot iniciado em modo API (Meta Cloud), sem necessidade de QR.')
     }
 
@@ -656,7 +713,10 @@ async function start() {
         salvarStatusBot({
           connected: false,
           lastError: `Conexão fechada (${statusCode || 'desconhecido'}) - ${mensagemErro}`,
-          qrDataUrl: ''
+          qrDataUrl: '',
+          logMessage: `Conexão WhatsApp fechada (código: ${statusCode || 'desconhecido'}).`,
+          logLevel: 'warn',
+          logSource: 'connection'
         })
 
         const precisaResetAuth = statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession
@@ -691,7 +751,15 @@ async function start() {
         authResetadoNoCiclo = false
         activeSock = sock
         console.log('Bot conectado ao WhatsApp com sucesso.')
-        salvarStatusBot({ connected: true, connectionOpenedAt: new Date().toISOString(), lastError: '', qrDataUrl: '' })
+        salvarStatusBot({
+          connected: true,
+          connectionOpenedAt: new Date().toISOString(),
+          lastError: '',
+          qrDataUrl: '',
+          logMessage: 'Conexão com WhatsApp estabelecida com sucesso.',
+          logLevel: 'info',
+          logSource: 'connection'
+        })
         await processarFilaDisparos(sock)
       }
     })

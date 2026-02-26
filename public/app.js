@@ -69,6 +69,7 @@ let currentCycleId = ''
 let currentCycleName = ''
 let editingRecipientId = ''
 let editingCycleIndex = -1
+const knownBotEventIds = new Set()
 
 const configuredApiBaseUrl = ((window.APP_API_BASE_URL || '').toString().trim()).replace(/\/$/, '')
 const nativeFetch = window.fetch.bind(window)
@@ -102,21 +103,53 @@ function withApiBase(input) {
 
 window.fetch = (input, init) => nativeFetch(withApiBase(input), init)
 
-function addLogEntry(message, tipo = 'success') {
+function addLogEntry(message, tipo = 'success', eventAt = '') {
   if (!eventLogEl) return
 
   const row = document.createElement('div')
   row.className = 'event-log-item'
-  const time = new Date().toLocaleTimeString('pt-BR')
+  const baseDate = eventAt ? new Date(eventAt) : new Date()
+  const time = Number.isNaN(baseDate.getTime())
+    ? new Date().toLocaleTimeString('pt-BR')
+    : baseDate.toLocaleTimeString('pt-BR')
+  const icon = tipo === 'error' ? '❌' : tipo === 'warn' ? '⚠️' : '✅'
   row.innerHTML = `
     <div class="event-log-time">${time}</div>
-    <div>${tipo === 'error' ? '❌' : '✅'} ${message}</div>
+    <div>${icon} ${message}</div>
   `
 
   eventLogEl.prepend(row)
   while (eventLogEl.children.length > 80) {
     eventLogEl.removeChild(eventLogEl.lastChild)
   }
+}
+
+function syncBotEvents(events) {
+  if (!Array.isArray(events) || !events.length) {
+    return
+  }
+
+  const ordered = [...events].reverse()
+
+  ordered.forEach((event) => {
+    const eventId = (event?.id || '').toString().trim()
+    if (!eventId || knownBotEventIds.has(eventId)) {
+      return
+    }
+
+    knownBotEventIds.add(eventId)
+
+    const message = (event?.message || '').toString().trim()
+    if (!message) {
+      return
+    }
+
+    const level = (event?.level || 'info').toString().toLowerCase()
+    const source = (event?.source || 'bot').toString().toUpperCase()
+    const tipo = level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'success'
+
+    addLogEntry(`[${source}] ${message}`, tipo, event?.at || '')
+  })
 }
 
 function setStatus(message, tipo = 'success') {
@@ -148,6 +181,7 @@ function initSideMenu() {
 
   clearLogBtn?.addEventListener('click', () => {
     eventLogEl.innerHTML = ''
+    knownBotEventIds.clear()
     addLogEntry('Log limpo pelo usuário.', 'success')
   })
 
@@ -570,6 +604,7 @@ function renderBotStatus(status) {
   const erro = status.lastError || '---'
 
   botStatusEl.textContent = `Status: ${conexao} | Última fila: ${ultimaFila} | Último envio: ${ultimoEnvio} | Erro: ${erro}`
+  syncBotEvents(status.events)
 }
 
 function modoApiSelecionado() {

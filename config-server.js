@@ -168,6 +168,38 @@ function writeBotProcessMeta(meta) {
   fs.writeFileSync(BOT_PROCESS_PATH, JSON.stringify(meta, null, 2), 'utf-8')
 }
 
+function startBotProcess() {
+  const child = spawn(process.execPath, ['bot.js'], {
+    cwd: __dirname,
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true
+  })
+
+  child.unref()
+
+  writeBotProcessMeta({
+    pid: child.pid,
+    startedAt: new Date().toISOString()
+  })
+
+  return child.pid
+}
+
+function ensureBotStartedOnBoot() {
+  try {
+    const current = readBotProcessMeta()
+    if (processIsRunning(current.pid)) {
+      return
+    }
+
+    const pid = startBotProcess()
+    console.log(`Bot iniciado automaticamente na subida do backend (PID: ${pid}).`)
+  } catch (error) {
+    console.log(`Falha ao iniciar bot automaticamente: ${error.message}`)
+  }
+}
+
 function parseDispatchPayload(body) {
   const recipientIdsInput = Array.isArray(body.recipientIds)
     ? body.recipientIds.map((id) => sanitizeText(id)).filter(Boolean)
@@ -496,7 +528,8 @@ app.get('/api/bot-status', (_req, res) => {
       connectionOpenedAt: '',
       lastError: 'Bot ainda não iniciou.',
       lastQueueRunAt: '',
-      lastSentAt: ''
+      lastSentAt: '',
+      events: []
     })
     return
   }
@@ -559,6 +592,16 @@ app.post('/api/bot-disconnect', (_req, res) => {
       connected: false,
       qrDataUrl: '',
       lastError: 'Sessão desconectada manualmente. Aguarde alguns segundos para gerar novo QR.',
+      events: [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          at: new Date().toISOString(),
+          level: 'warn',
+          source: 'panel',
+          message: 'Sessão desconectada manualmente no painel.'
+        },
+        ...(Array.isArray(currentStatus.events) ? currentStatus.events : [])
+      ].slice(0, 200),
       updatedAt: new Date().toISOString()
     }
 
@@ -582,21 +625,8 @@ app.post('/api/bot-start', (_req, res) => {
       return
     }
 
-    const child = spawn(process.execPath, ['bot.js'], {
-      cwd: __dirname,
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true
-    })
-
-    child.unref()
-
-    writeBotProcessMeta({
-      pid: child.pid,
-      startedAt: new Date().toISOString()
-    })
-
-    res.json({ ok: true, message: 'Bot iniciado em segundo plano.', pid: child.pid })
+    const pid = startBotProcess()
+    res.json({ ok: true, message: 'Bot iniciado em segundo plano.', pid })
   } catch (error) {
     res.status(500).json({ ok: false, message: `Falha ao iniciar bot: ${error.message}` })
   }
@@ -848,6 +878,7 @@ app.delete('/api/cycles/:cycleId', (req, res) => {
 })
 
 initDatabase().then(() => {
+  ensureBotStartedOnBoot()
   app.listen(PORT, () => {
     console.log(`Painel de configuração disponível em http://localhost:${PORT}`)
   })
