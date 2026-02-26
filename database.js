@@ -2,31 +2,289 @@ import fs from 'fs'
 import path from 'path'
 import Datastore from 'nedb-promises'
 import { fileURLToPath } from 'url'
+import { createClient } from '@supabase/supabase-js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const DATA_DIR = path.join(__dirname, 'data')
+const DATA_PROVIDER = (process.env.DATA_PROVIDER || 'nedb').toString().trim().toLowerCase()
+const USE_SUPABASE = DATA_PROVIDER === 'supabase'
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').toString().trim()
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').toString().trim()
+
+const TABLE_MAP = {
+  recipients: {
+    tableName: 'recipients',
+    toDb: {
+      _id: 'id',
+      name: 'name',
+      type: 'type',
+      destination: 'destination',
+      jid: 'jid',
+      isDefault: 'is_default',
+      isCycleTarget: 'is_cycle_target',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    }
+  },
+  dispatches: {
+    tableName: 'dispatches',
+    toDb: {
+      _id: 'id',
+      recipientId: 'recipient_id',
+      sourceType: 'source_type',
+      cycleDay: 'cycle_day',
+      messageText: 'message_text',
+      mode: 'mode',
+      sendAt: 'send_at',
+      status: 'status',
+      sentAt: 'sent_at',
+      errorMessage: 'error_message',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    }
+  }
+}
+
+function getTableMeta(entity) {
+  const meta = TABLE_MAP[entity]
+  if (!meta) {
+    throw new Error(`Tabela não mapeada para entidade: ${entity}`)
+  }
+  return meta
+}
+
+function toAppDoc(entity, dbDoc) {
+  if (!dbDoc || typeof dbDoc !== 'object') {
+    return null
+  }
+
+  const { toDb } = getTableMeta(entity)
+  const toApp = Object.entries(toDb).reduce((acc, [appKey, dbKey]) => {
+    acc[dbKey] = appKey
+    return acc
+  }, {})
+
+  const result = {}
+  Object.entries(dbDoc).forEach(([dbKey, value]) => {
+    const appKey = toApp[dbKey] || dbKey
+    result[appKey] = value
+  })
+
+  return result
+}
+
+function toDbDoc(entity, appDoc) {
+  const { toDb } = getTableMeta(entity)
+  const result = {}
+
+  Object.entries(appDoc || {}).forEach(([key, value]) => {
+    const dbKey = toDb[key] || key
+    if (typeof value === 'undefined') {
+      return
+    }
+    result[dbKey] = value
+  })
+
+  return result
+}
+
+function mapQueryToDb(entity, query = {}) {
+  const { toDb } = getTableMeta(entity)
+  const mapped = {}
+  Object.entries(query || {}).forEach(([key, value]) => {
+    const dbKey = toDb[key] || key
+    mapped[dbKey] = value
+  })
+  return mapped
+}
+
+function applySupabaseFilters(builder, mappedQuery) {
+  let current = builder
+  Object.entries(mappedQuery || {}).forEach(([column, value]) => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (Array.isArray(value.$in)) {
+        current = current.in(column, value.$in)
+      }
+      if (typeof value.$gte !== 'undefined') {
+        current = current.gte(column, value.$gte)
+      }
+      if (typeof value.$lte !== 'undefined') {
+        current = current.lte(column, value.$lte)
+      }
+      return
+    }
+
+    current = current.eq(column, value)
+  })
+
+  return current
+}
+
+class SupabaseQuery {
+  constructor(adapter, entity, query) {
+    this.adapter = adapter
+    this.entity = entity
+    this.query = query || {}
+    this.sortConfig = null
+    this.limitValue = null
+  }
+
+  sort(config) {
+    this.sortConfig = config || null
+    return this
+  }
+
+  limit(limitValue) {
+    this.limitValue = Number(limitValue)
+    return this
+  }
+
+  async exec() {
+    return this.adapter.findMany(this.entity, this.query, {
+      sort: this.sortConfig,
+      limit: this.limitValue
+    })
+  }
+
+  then(resolve, reject) {
+    return this.exec().then(resolve, reject)
+  }
+
+  catch(reject) {
+    return this.exec().catch(reject)
+  }
+
+  finally(callback) {
+    return this.exec().finally(callback)
+  }
+}
+
+class SupabaseCollection {
+  constructor(client, entity) {
+    this.client = client
+    this.entity = entity
+    this.tableName = getTableMeta(entity).tableName
+  }
+
+  async loadDatabase() {
+    return
+  }
+
+  async ensureIndex() {
+    return
+  }
+
+  find(query = {}) {
+    return new SupabaseQuery(this, this.entity, query)
+  }
+
+  async findMany(query = {}, options = {}) {
+    const mappedQuery = mapQueryToDb(this.entity, query)
+    let request = this.client.from(this.tableName).select('*')
+    request = applySupabaseFilters(request, mappedQuery)
+
+    const sort = options.sort || null
+    if (sort && typeof sort === 'object') {
+      const [[field, dir]] = Object.entries(sort)
+      if (field) {
+        const mappedField = mapQueryToDb(this.entity, { [field]: true })
+        const dbField = Object.keys(mappedField)[0] || field
+        request = request.order(dbField, { ascending: Number(dir) >= 0 })
+      }
+    }
+
+    if (Number.isFinite(options.limit) && options.limit > 0) {
+      request = request.limit(options.limit)
+    }
+
+    const { data, error } = await request
+    if (error) throw error
+    return (data || []).map((item) => toAppDoc(this.entity, item))
+  }
+
+  async findOne(query = {}) {
+    const results = await this.findMany(query, { limit: 1 })
+    return results[0] || null
+  }
+
+  async insert(doc = {}) {
+    const payload = toDbDoc(this.entity, doc)
+    const { data, error } = await this.client.from(this.tableName).insert(payload).select('*').single()
+    if (error) throw error
+    return toAppDoc(this.entity, data)
+  }
+
+  async update(query = {}, updatePayload = {}, options = {}) {
+    const mappedQuery = mapQueryToDb(this.entity, query)
+    const payload = toDbDoc(this.entity, updatePayload?.$set || updatePayload || {})
+    let request = this.client.from(this.tableName).update(payload)
+    request = applySupabaseFilters(request, mappedQuery)
+
+    const { error } = await request
+    if (error) throw error
+    return 1
+  }
+
+  async remove(query = {}) {
+    const mappedQuery = mapQueryToDb(this.entity, query)
+    let request = this.client.from(this.tableName).delete()
+    request = applySupabaseFilters(request, mappedQuery)
+    const { error } = await request
+    if (error) throw error
+    return 1
+  }
+
+  async count(query = {}) {
+    const mappedQuery = mapQueryToDb(this.entity, query)
+    let request = this.client.from(this.tableName).select('id', { head: true, count: 'exact' })
+    request = applySupabaseFilters(request, mappedQuery)
+    const { count, error } = await request
+    if (error) throw error
+    return Number(count || 0)
+  }
+}
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true })
 }
 
-export const recipientsDb = Datastore.create({
-  filename: path.join(DATA_DIR, 'recipients.db'),
-  autoload: true,
-  timestampData: true
-})
+let recipientsDb
+let dispatchesDb
 
-export const dispatchesDb = Datastore.create({
-  filename: path.join(DATA_DIR, 'dispatches.db'),
-  autoload: true,
-  timestampData: true
-})
+if (USE_SUPABASE) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('DATA_PROVIDER=supabase exige SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY configurados.')
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  })
+
+  recipientsDb = new SupabaseCollection(supabase, 'recipients')
+  dispatchesDb = new SupabaseCollection(supabase, 'dispatches')
+} else {
+  recipientsDb = Datastore.create({
+    filename: path.join(DATA_DIR, 'recipients.db'),
+    autoload: true,
+    timestampData: true
+  })
+
+  dispatchesDb = Datastore.create({
+    filename: path.join(DATA_DIR, 'dispatches.db'),
+    autoload: true,
+    timestampData: true
+  })
+}
+
+export { recipientsDb, dispatchesDb }
 
 export async function initDatabase() {
-  await recipientsDb.ensureIndex({ fieldName: 'jid' })
-  await dispatchesDb.ensureIndex({ fieldName: 'status' })
-  await dispatchesDb.ensureIndex({ fieldName: 'sendAt' })
+  if (!USE_SUPABASE) {
+    await recipientsDb.ensureIndex({ fieldName: 'jid' })
+    await dispatchesDb.ensureIndex({ fieldName: 'status' })
+    await dispatchesDb.ensureIndex({ fieldName: 'sendAt' })
+  }
 }
 
 export function normalizePrivateJid(input) {
