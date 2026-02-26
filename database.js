@@ -11,6 +11,7 @@ const DATA_PROVIDER = (process.env.DATA_PROVIDER || 'nedb').toString().trim().to
 const USE_SUPABASE = DATA_PROVIDER === 'supabase'
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').toString().trim()
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').toString().trim()
+const HAS_SUPABASE_CONFIG = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
 
 const TABLE_MAP = {
   recipients: {
@@ -252,10 +253,7 @@ if (!fs.existsSync(DATA_DIR)) {
 let recipientsDb
 let dispatchesDb
 
-if (USE_SUPABASE) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('DATA_PROVIDER=supabase exige SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY configurados.')
-  }
+if (USE_SUPABASE && HAS_SUPABASE_CONFIG) {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
@@ -264,6 +262,10 @@ if (USE_SUPABASE) {
   recipientsDb = new SupabaseCollection(supabase, 'recipients')
   dispatchesDb = new SupabaseCollection(supabase, 'dispatches')
 } else {
+  if (USE_SUPABASE && !HAS_SUPABASE_CONFIG) {
+    console.log('DATA_PROVIDER=supabase definido sem SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY. Usando fallback NeDB para manter a aplicação online.')
+  }
+
   recipientsDb = Datastore.create({
     filename: path.join(DATA_DIR, 'recipients.db'),
     autoload: true,
