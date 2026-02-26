@@ -32,6 +32,7 @@ const BOT_STATUS_PATH = path.join(__dirname, 'data', 'bot-status.json')
 const BOT_COMMAND_PATH = path.join(__dirname, 'data', 'bot-command.json')
 const BOT_PROCESS_PATH = path.join(__dirname, 'data', 'bot-process.json')
 const BAILEYS_AUTH_DIR = path.join(__dirname, 'baileys-auth')
+let botStartInProgress = false
 
 const CAMPOS_ENV = [
   'SEND_PROVIDER',
@@ -641,15 +642,28 @@ app.post('/api/bot-disconnect', (_req, res) => {
 
 app.post('/api/bot-start', (_req, res) => {
   try {
+    if (botStartInProgress) {
+      res.status(409).json({ ok: false, message: 'Inicialização do bot já está em andamento. Aguarde alguns segundos.' })
+      return
+    }
+
+    botStartInProgress = true
+
     const current = readBotProcessMeta()
     if (processIsRunning(current.pid)) {
+      botStartInProgress = false
       res.json({ ok: true, message: 'Bot já está em execução.', pid: current.pid })
       return
     }
 
     const pid = startBotProcess()
+    setTimeout(() => {
+      botStartInProgress = false
+    }, 8000)
+
     res.json({ ok: true, message: 'Bot iniciado em segundo plano.', pid })
   } catch (error) {
+    botStartInProgress = false
     res.status(500).json({ ok: false, message: `Falha ao iniciar bot: ${error.message}` })
   }
 })

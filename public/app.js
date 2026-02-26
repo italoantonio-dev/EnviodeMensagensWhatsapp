@@ -71,6 +71,7 @@ let editingRecipientId = ''
 let editingCycleIndex = -1
 const knownBotEventIds = new Set()
 const BOT_POLL_INTERVAL_MS = 2000
+let startBotRequestInFlight = false
 
 const configuredApiBaseUrl = ((window.APP_API_BASE_URL || '').toString().trim()).replace(/\/$/, '')
 const nativeFetch = window.fetch.bind(window)
@@ -677,11 +678,27 @@ async function desconectarQrSessao() {
 }
 
 async function iniciarBotPainel() {
+  if (startBotRequestInFlight) {
+    throw new Error('Inicialização já está em andamento. Aguarde alguns segundos.')
+  }
+
+  startBotRequestInFlight = true
+  if (startBotBtn) {
+    startBotBtn.disabled = true
+    startBotBtn.textContent = 'Iniciando...'
+  }
+
   const response = await fetch('/api/bot-start', {
     method: 'POST'
   })
 
   const data = await response.json().catch(() => ({}))
+  startBotRequestInFlight = false
+  if (startBotBtn) {
+    startBotBtn.disabled = false
+    startBotBtn.textContent = 'Iniciar Bot'
+  }
+
   if (!response.ok) {
     throw new Error(data.message || 'Falha ao iniciar bot pelo painel.')
   }
@@ -1041,6 +1058,11 @@ startBotBtn?.addEventListener('click', async () => {
   try {
     await iniciarBotPainel()
   } catch (error) {
+    startBotRequestInFlight = false
+    if (startBotBtn) {
+      startBotBtn.disabled = false
+      startBotBtn.textContent = 'Iniciar Bot'
+    }
     setStatus(error.message || 'Erro ao iniciar bot.', 'error')
   }
 })
