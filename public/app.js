@@ -479,7 +479,7 @@ async function removerCicloAtual() {
 }
 
 function renderRecipients(items) {
-  recipientsCache = items || []
+  recipientsCache = Array.isArray(items) ? items : []
   recipientsList.innerHTML = ''
 
   dispatchRecipient.innerHTML = ''
@@ -571,9 +571,10 @@ async function salvarEdicaoDestinatario() {
 }
 
 function renderDispatches(items) {
+  const safeItems = Array.isArray(items) ? items : []
   dispatchesList.innerHTML = ''
 
-  ;(items || []).forEach((item) => {
+  safeItems.forEach((item) => {
     const div = document.createElement('div')
     div.className = 'list-item'
     const origem = item.sourceType === 'cycle' ? `Central • Dia ${item.cycleDay}` : 'Manual'
@@ -588,7 +589,7 @@ function renderDispatches(items) {
     dispatchesList.appendChild(div)
   })
 
-  if (!(items || []).length) {
+  if (!safeItems.length) {
     dispatchesList.innerHTML = '<div class="meta">Nenhum disparo registrado.</div>'
   }
 }
@@ -689,9 +690,22 @@ async function carregarDadosBanco() {
     fetch(`/api/bot-status?t=${Date.now()}`, { cache: 'no-store' })
   ])
 
-  const recipients = await recipientsRes.json()
-  const dispatches = await dispatchesRes.json()
+  const recipientsRaw = await recipientsRes.json().catch(() => [])
+  const dispatchesRaw = await dispatchesRes.json().catch(() => [])
   const botStatus = await botStatusRes.json()
+
+  const recipients = Array.isArray(recipientsRaw) ? recipientsRaw : []
+  const dispatches = Array.isArray(dispatchesRaw) ? dispatchesRaw : []
+
+  if (!recipientsRes.ok) {
+    const message = (recipientsRaw && recipientsRaw.message) ? recipientsRaw.message : 'Falha ao carregar destinatários.'
+    setStatus(message, 'error')
+  }
+
+  if (!dispatchesRes.ok) {
+    const message = (dispatchesRaw && dispatchesRaw.message) ? dispatchesRaw.message : 'Falha ao carregar disparos.'
+    setStatus(message, 'error')
+  }
 
   renderRecipients(recipients)
   renderDispatches(dispatches)

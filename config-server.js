@@ -309,13 +309,17 @@ app.use('/api', (req, _res, next) => {
 })
 
 app.get('/api/recipients', async (_req, res) => {
-  const items = await recipientsDb.find({}).sort({ createdAt: -1 })
-  const mapped = items.map((item) => ({
-    ...item,
-    isDefault: Boolean(item.isDefault),
-    isCycleTarget: Boolean(item.isCycleTarget)
-  }))
-  res.json(mapped)
+  try {
+    const items = await recipientsDb.find({}).sort({ createdAt: -1 })
+    const mapped = (Array.isArray(items) ? items : []).map((item) => ({
+      ...item,
+      isDefault: Boolean(item.isDefault),
+      isCycleTarget: Boolean(item.isCycleTarget)
+    }))
+    res.json(mapped)
+  } catch (error) {
+    res.status(500).json({ ok: false, message: `Falha ao carregar destinatários: ${error.message}` })
+  }
 })
 
 app.post('/api/recipients', async (req, res) => {
@@ -471,22 +475,26 @@ app.put('/api/recipients/:id', async (req, res) => {
 })
 
 app.get('/api/dispatches', async (_req, res) => {
-  const items = await dispatchesDb.find({}).sort({ createdAt: -1 }).limit(100)
+  try {
+    const items = await dispatchesDb.find({}).sort({ createdAt: -1 }).limit(100)
 
-  const mapped = []
-  for (const item of items) {
-    const recipient = await recipientsDb.findOne({ _id: item.recipientId })
+    const mapped = []
+    for (const item of (Array.isArray(items) ? items : [])) {
+      const recipient = await recipientsDb.findOne({ _id: item.recipientId })
 
-    mapped.push({
-      ...item,
-      sendAtBr: formatDateTimeBr(item.sendAt),
-      sentAtBr: item.sentAt ? formatDateTimeBr(item.sentAt) : '',
-      recipientName: recipient?.name || 'Removido',
-      recipientJid: recipient?.jid || ''
-    })
+      mapped.push({
+        ...item,
+        sendAtBr: formatDateTimeBr(item.sendAt),
+        sentAtBr: item.sentAt ? formatDateTimeBr(item.sentAt) : '',
+        recipientName: recipient?.name || 'Removido',
+        recipientJid: recipient?.jid || ''
+      })
+    }
+
+    res.json(mapped)
+  } catch (error) {
+    res.status(500).json({ ok: false, message: `Falha ao carregar disparos: ${error.message}` })
   }
-
-  res.json(mapped)
 })
 
 app.post('/api/dispatches', async (req, res) => {
