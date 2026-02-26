@@ -606,6 +606,16 @@ function renderBotStatus(status) {
   const erro = status.lastError || '---'
 
   botStatusEl.textContent = `Status: ${conexao} | Última fila: ${ultimaFila} | Último envio: ${ultimoEnvio} | Erro: ${erro}`
+
+  if (!modoApiSelecionado()) {
+    if (status.connected) {
+      qrStatusEl.textContent = '✅ WhatsApp conectado.'
+      qrWrapEl.style.display = 'none'
+    } else if (!qrImageEl.src) {
+      qrStatusEl.textContent = '⏳ WhatsApp desconectado. Aguardando QR para conexão.'
+    }
+  }
+
   syncBotEvents(status.events)
 }
 
@@ -632,7 +642,7 @@ async function carregarQrBot() {
     const data = await response.json()
 
     if (data.connected) {
-      qrStatusEl.textContent = 'Bot conectado. QR não é necessário agora.'
+      qrStatusEl.textContent = '✅ WhatsApp conectado.'
       qrWrapEl.style.display = 'none'
       return
     }
