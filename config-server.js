@@ -12,6 +12,7 @@ import {
   dispatchesDb,
   initDatabase,
   normalizeRecipientJid,
+  normalizePrivateDestinationBr,
   parseBrDateTime,
   formatDateTimeBr,
   loadCycleConfig,
@@ -132,6 +133,59 @@ function validarPayload(payload) {
 
 function sanitizeText(value) {
   return (value || '').toString().trim()
+}
+
+async function migrarDestinatariosPrivadosPadraoBr() {
+  try {
+    const recipients = await recipientsDb.find({ type: 'private' })
+    const list = Array.isArray(recipients) ? recipients : []
+
+    let updated = 0
+    let skippedInvalid = 0
+    let skippedDuplicate = 0
+
+    for (const recipient of list) {
+      const currentDestination = sanitizeText(recipient?.destination)
+      const baseValue = currentDestination || sanitizeText(recipient?.jid).replace('@s.whatsapp.net', '')
+
+      const normalizedDestination = normalizePrivateDestinationBr(baseValue)
+      const normalizedJid = normalizeRecipientJid('private', baseValue)
+
+      if (!normalizedDestination || !normalizedJid) {
+        skippedInvalid += 1
+        continue
+      }
+
+      const hasChanged = normalizedDestination !== currentDestination || normalizedJid !== recipient?.jid
+      if (!hasChanged) {
+        continue
+      }
+
+      const existing = await recipientsDb.findOne({ jid: normalizedJid })
+      if (existing && existing._id !== recipient._id) {
+        skippedDuplicate += 1
+        continue
+      }
+
+      await recipientsDb.update(
+        { _id: recipient._id },
+        {
+          $set: {
+            destination: normalizedDestination,
+            jid: normalizedJid
+          }
+        }
+      )
+
+      updated += 1
+    }
+
+    if (updated > 0 || skippedInvalid > 0 || skippedDuplicate > 0) {
+      console.log(`[MIGRACAO] Destinatarios privados BR -> atualizados: ${updated}, ignorados invalidos: ${skippedInvalid}, ignorados duplicados: ${skippedDuplicate}`)
+    }
+  } catch (error) {
+    console.log('[MIGRACAO] Falha ao migrar destinatarios privados para padrao BR:', error.message)
+  }
 }
 
 function normalizeCycleName(value, fallback = 'Novo ciclo') {
@@ -344,7 +398,10 @@ app.post('/api/recipients', async (req, res) => {
   try {
     const name = sanitizeText(req.body?.name)
     const type = sanitizeText(req.body?.type) || 'private'
-    const destination = sanitizeText(req.body?.destination)
+    const destinationRaw = sanitizeText(req.body?.destination)
+    const destination = type === 'private'
+      ? normalizePrivateDestinationBr(destinationRaw)
+      : destinationRaw
 
     if (!name) {
       res.status(400).json({ ok: false, message: 'Informe o nome do destinatário.' })
@@ -356,7 +413,7 @@ app.post('/api/recipients', async (req, res) => {
       return
     }
 
-    if (!destination) {
+    if (!destinationRaw) {
       res.status(400).json({ ok: false, message: 'Informe o número ou ID/link do grupo.' })
       return
     }
@@ -368,7 +425,7 @@ app.post('/api/recipients', async (req, res) => {
         return
       }
 
-      res.status(400).json({ ok: false, message: 'Destinatário inválido.' })
+      res.status(400).json({ ok: false, message: 'Número inválido. Use padrão brasileiro com DDD (ex.: 34999998888 ou +55 (34) 99999-8888).' })
       return
     }
 
@@ -444,7 +501,10 @@ app.post('/api/import-recipients', async (req, res) => {
       const item = recipients[i]
       const name = sanitizeText(item.name || item.nome || '')
       const type = sanitizeText(item.type || item.tipo || 'private')
-      const destination = sanitizeText(item.destination || item.destino || item.numero || item.number || '')
+      const destinationRaw = sanitizeText(item.destination || item.destino || item.numero || item.number || '')
+      const destination = type === 'private'
+        ? normalizePrivateDestinationBr(destinationRaw)
+        : destinationRaw
 
       if (!name) {
         results.errors.push({
@@ -462,7 +522,7 @@ app.post('/api/import-recipients', async (req, res) => {
         continue
       }
 
-      if (!destination) {
+      if (!destinationRaw) {
         results.errors.push({
           row: i + 2,
           reason: 'Destino não informado'
@@ -476,7 +536,7 @@ app.post('/api/import-recipients', async (req, res) => {
           row: i + 2,
           reason: type === 'group' 
             ? 'Grupo inválido. Use ID com @g.us ou link de convite'
-            : 'Número inválido. Use formato DDI + número'
+            : 'Número inválido. Use padrão BR com DDD (ex.: 34999998888)'
         })
         continue
       }
@@ -576,7 +636,10 @@ app.put('/api/recipients/:id', async (req, res) => {
   const id = sanitizeText(req.params.id)
   const name = sanitizeText(req.body?.name)
   const type = sanitizeText(req.body?.type) || 'private'
-  const destination = sanitizeText(req.body?.destination)
+  const destinationRaw = sanitizeText(req.body?.destination)
+  const destination = type === 'private'
+    ? normalizePrivateDestinationBr(destinationRaw)
+    : destinationRaw
 
   if (!id) {
     res.status(400).json({ ok: false, message: 'ID do destinatário inválido.' })
@@ -593,7 +656,7 @@ app.put('/api/recipients/:id', async (req, res) => {
     return
   }
 
-  if (!destination) {
+  if (!destinationRaw) {
     res.status(400).json({ ok: false, message: 'Informe o destino do destinatário.' })
     return
   }
@@ -611,7 +674,7 @@ app.put('/api/recipients/:id', async (req, res) => {
       return
     }
 
-    res.status(400).json({ ok: false, message: 'Destinatário inválido.' })
+    res.status(400).json({ ok: false, message: 'Número inválido. Use padrão brasileiro com DDD (ex.: 34999998888 ou +55 (34) 99999-8888).' })
     return
   }
 
@@ -1087,7 +1150,8 @@ app.delete('/api/cycles/:cycleId', (req, res) => {
   res.json({ ok: true, message: 'Ciclo removido com sucesso.' })
 })
 
-initDatabase().then(() => {
+initDatabase().then(async () => {
+  await migrarDestinatariosPrivadosPadraoBr()
   ensureBotStartedOnBoot()
   app.listen(PORT, () => {
     console.log(`Painel de configuração disponível em http://localhost:${PORT}`)
