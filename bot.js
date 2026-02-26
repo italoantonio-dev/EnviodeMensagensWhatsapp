@@ -434,12 +434,56 @@ async function resolverJidDestinatario(sock, recipient) {
   }
 
   if (!/chat\.whatsapp\.com\//i.test(jid)) {
-    if (recipient?.type === 'private' && !/@s\.whatsapp\.net$/i.test(jid)) {
-      return null
+    if (recipient?.type === 'private') {
+      const numero = (recipient?.destination || '').toString().replace(/\D/g, '')
+      if (!numero) {
+        return null
+      }
+
+      try {
+        const check = await withTimeout(
+          sock.onWhatsApp(numero),
+          10000,
+          'Timeout ao validar número no WhatsApp.'
+        )
+
+        const match = Array.isArray(check) ? check.find((item) => item?.exists) : null
+        const resolved = match?.jid || jid
+
+        if (resolved && resolved !== jid && recipient?._id) {
+          await recipientsDb.update({ _id: recipient._id }, { $set: { jid: resolved } })
+        }
+
+        if (!resolved || !/@s\.whatsapp\.net$/i.test(resolved)) {
+          return null
+        }
+
+        return resolved
+      } catch (err) {
+        console.log('Falha ao validar número no WhatsApp:', err.message)
+        if (!/@s\.whatsapp\.net$/i.test(jid)) {
+          return null
+        }
+        return jid
+      }
     }
 
-    if (recipient?.type === 'group' && !/@g\.us$/i.test(jid)) {
-      return null
+    if (recipient?.type === 'group') {
+      if (!/@g\.us$/i.test(jid)) {
+        return null
+      }
+
+      try {
+        await withTimeout(
+          sock.groupMetadata(jid),
+          10000,
+          'Timeout ao validar grupo no WhatsApp.'
+        )
+        return jid
+      } catch (err) {
+        console.log('Falha ao validar grupo no WhatsApp:', err.message)
+        return null
+      }
     }
 
     return jid
@@ -526,11 +570,22 @@ async function enviarMensagemDispatch(sock, recipient, mensagem) {
     throw new Error('Destino inválido para o tipo de destinatário. Para grupo use ID @g.us ou link de convite; para privado use número válido.')
   }
 
-  await withTimeout(
+  const result = await withTimeout(
     sock.sendMessage(jidDestino, { text: mensagem }),
     20000,
     'Timeout ao enviar mensagem no Baileys (20s).'
   )
+
+  const messageId = result?.key?.id || ''
+  if (!messageId) {
+    throw new Error('Envio sem confirmação do WhatsApp (messageId ausente).')
+  }
+
+  return {
+    messageId,
+    jidDestino,
+    provider: 'baileys'
+  }
 }
 
 async function processarFilaDisparos(sock) {
@@ -598,7 +653,7 @@ async function processarFilaDisparos(sock) {
     }
 
     try {
-      await enviarMensagemDispatch(sock, recipient, mensagem)
+      const envio = await enviarMensagemDispatch(sock, recipient, mensagem)
       await dispatchesDb.update(
         { _id: item._id },
         { $set: { status: 'sent', sentAt: new Date().toISOString(), errorMessage: '' } }
@@ -606,7 +661,7 @@ async function processarFilaDisparos(sock) {
       salvarStatusBot({
         lastSentAt: new Date().toISOString(),
         lastError: '',
-        logMessage: `Mensagem enviada para ${recipient.name || recipient.destination || recipient._id}.`,
+        logMessage: `Mensagem enviada para ${recipient.name || recipient.destination || recipient._id} (${envio.jidDestino}) [id: ${envio.messageId}].`,
         logLevel: 'info',
         logSource: 'dispatch'
       })
