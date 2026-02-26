@@ -84,7 +84,18 @@ function toDbDoc(entity, appDoc) {
     if (typeof value === 'undefined') {
       return
     }
-    result[dbKey] = value
+
+    let finalValue = value
+
+    if (entity === 'dispatches' && dbKey === 'sent_at' && (finalValue === '' || finalValue === null)) {
+      finalValue = null
+    }
+
+    if ((dbKey === 'created_at' || dbKey === 'updated_at' || dbKey === 'send_at') && finalValue === '') {
+      finalValue = null
+    }
+
+    result[dbKey] = finalValue
   })
 
   return result
@@ -142,7 +153,7 @@ class SupabaseQuery {
   }
 
   async exec() {
-    return this.adapter.findMany(this.entity, this.query, {
+    return this.adapter.findMany(this.query, {
       sort: this.sortConfig,
       limit: this.limitValue
     })
