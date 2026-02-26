@@ -187,6 +187,19 @@ function startBotProcess() {
   return child.pid
 }
 
+function stopBotProcess(pid) {
+  if (!processIsRunning(pid)) {
+    return false
+  }
+
+  try {
+    process.kill(pid)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function ensureBotStartedOnBoot() {
   try {
     const current = readBotProcessMeta()
@@ -665,6 +678,32 @@ app.post('/api/bot-start', (_req, res) => {
   } catch (error) {
     botStartInProgress = false
     res.status(500).json({ ok: false, message: `Falha ao iniciar bot: ${error.message}` })
+  }
+})
+
+app.post('/api/bot-restart-safe', (_req, res) => {
+  try {
+    if (botStartInProgress) {
+      res.status(409).json({ ok: false, message: 'Inicialização/reinício do bot já está em andamento. Aguarde alguns segundos.' })
+      return
+    }
+
+    botStartInProgress = true
+
+    const current = readBotProcessMeta()
+    if (processIsRunning(current.pid)) {
+      stopBotProcess(current.pid)
+    }
+
+    const pid = startBotProcess()
+    setTimeout(() => {
+      botStartInProgress = false
+    }, 8000)
+
+    res.json({ ok: true, message: 'Bot reiniciado com sessão preservada.', pid })
+  } catch (error) {
+    botStartInProgress = false
+    res.status(500).json({ ok: false, message: `Falha ao reiniciar bot com segurança: ${error.message}` })
   }
 })
 
