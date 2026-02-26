@@ -323,46 +323,57 @@ app.get('/api/recipients', async (_req, res) => {
 })
 
 app.post('/api/recipients', async (req, res) => {
-  const name = sanitizeText(req.body?.name)
-  const type = sanitizeText(req.body?.type) || 'private'
-  const destination = sanitizeText(req.body?.destination)
+  try {
+    const name = sanitizeText(req.body?.name)
+    const type = sanitizeText(req.body?.type) || 'private'
+    const destination = sanitizeText(req.body?.destination)
 
-  if (!name) {
-    res.status(400).json({ ok: false, message: 'Informe o nome do destinatário.' })
-    return
-  }
-
-  if (!['private', 'group'].includes(type)) {
-    res.status(400).json({ ok: false, message: 'Tipo inválido.' })
-    return
-  }
-
-  if (!destination) {
-    res.status(400).json({ ok: false, message: 'Informe o número ou ID/link do grupo.' })
-    return
-  }
-
-  const jid = normalizeRecipientJid(type, destination)
-  if (!jid) {
-    if (type === 'group') {
-      res.status(400).json({ ok: false, message: 'Para grupo, informe um ID terminado com @g.us ou um link de convite do WhatsApp.' })
+    if (!name) {
+      res.status(400).json({ ok: false, message: 'Informe o nome do destinatário.' })
       return
     }
 
-    res.status(400).json({ ok: false, message: 'Destinatário inválido.' })
-    return
-  }
+    if (!['private', 'group'].includes(type)) {
+      res.status(400).json({ ok: false, message: 'Tipo inválido.' })
+      return
+    }
 
-  const existingCount = await recipientsDb.count({})
-  const item = await recipientsDb.insert({
-    name,
-    type,
-    destination,
-    jid,
-    isDefault: existingCount === 0,
-    isCycleTarget: false
-  })
-  res.json({ ok: true, item })
+    if (!destination) {
+      res.status(400).json({ ok: false, message: 'Informe o número ou ID/link do grupo.' })
+      return
+    }
+
+    const jid = normalizeRecipientJid(type, destination)
+    if (!jid) {
+      if (type === 'group') {
+        res.status(400).json({ ok: false, message: 'Para grupo, informe um ID terminado com @g.us ou um link de convite do WhatsApp.' })
+        return
+      }
+
+      res.status(400).json({ ok: false, message: 'Destinatário inválido.' })
+      return
+    }
+
+    const existingCount = await recipientsDb.count({})
+    const item = await recipientsDb.insert({
+      name,
+      type,
+      destination,
+      jid,
+      isDefault: existingCount === 0,
+      isCycleTarget: false
+    })
+
+    res.json({ ok: true, item })
+  } catch (error) {
+    const code = String(error?.code || '')
+    if (code === '23505') {
+      res.status(409).json({ ok: false, message: 'Este destinatário já está cadastrado.' })
+      return
+    }
+
+    res.status(500).json({ ok: false, message: `Falha ao adicionar destinatário: ${error.message}` })
+  }
 })
 
 app.post('/api/recipients/:id/cycle-target', async (req, res) => {
