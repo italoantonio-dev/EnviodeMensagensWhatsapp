@@ -1,0 +1,12 @@
+[
+  {
+    "message": "Teste automatico",
+    "timeHHmm": "14:35",
+    "isActive": true
+  },
+  {
+    "message": "D2",
+    "timeHHmm": "19:00",
+    "isActive": false
+  }
+]

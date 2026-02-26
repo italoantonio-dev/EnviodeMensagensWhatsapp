@@ -1,0 +1,33 @@
+[
+  {
+    "id": "cycle-default",
+    "name": "Ciclo 1",
+    "isSelected": true,
+    "settings": {
+      "startDate": "2026-02-25",
+      "isActive": true
+    },
+    "days": [
+      {
+        "message": "Teste automatico",
+        "timeHHmm": "14:35",
+        "isActive": true
+      },
+      {
+        "message": "D2",
+        "timeHHmm": "19:00",
+        "isActive": false
+      }
+    ]
+  },
+  {
+    "id": "cycle-mm2cqths-fj100o",
+    "name": "Ciclo 2",
+    "isSelected": false,
+    "settings": {
+      "startDate": "2026-02-25",
+      "isActive": true
+    },
+    "days": []
+  }
+]

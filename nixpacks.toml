@@ -1,0 +1,8 @@
+[build]
+providers = ["nodejs-pnpm", "nodejs-npm", "nodejs"]
+
+[build.variables]
+NODE_VERSION = "20"
+
+[start]
+cmd = "node config-server.js"

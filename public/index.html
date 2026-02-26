@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Painel de Configuração do Bot</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Painel de Configuração do Bot</h1>
+
+      <div class="dashboard-layout">
+        <aside class="side-menu">
+          <button type="button" class="menu-item is-active" data-target="section-config">Configurações gerais</button>
+          <button type="button" class="menu-item" data-target="section-cycles">Ciclos</button>
+          <button type="button" class="menu-item" data-target="section-qr">Conexão QR</button>
+          <button type="button" class="menu-item" data-target="section-recipients">Destinatários</button>
+          <button type="button" class="menu-item" data-target="section-dispatch">Disparos</button>
+
+          <div class="side-log-card">
+            <div class="side-log-header">
+              <strong>Log</strong>
+              <button id="clearLogBtn" type="button" class="secondary">Limpar</button>
+            </div>
+            <div id="eventLog" class="event-log"></div>
+          </div>
+        </aside>
+
+        <div class="content-area">
+
+      <section class="card menu-section" id="section-config">
+        <h2>Configurações gerais</h2>
+        <p class="subtitle">Defina como o bot conecta e os limites operacionais de envio.</p>
+
+        <h3>Conexão e ambiente</h3>
+        <div class="grid">
+          <label>
+            Modo de envio
+            <select id="SEND_PROVIDER">
+              <option value="baileys">QR (Baileys)</option>
+              <option value="meta-cloud">API (Meta Cloud)</option>
+            </select>
+          </label>
+
+          <label>
+            Número do bot
+            <input id="NUMERO_BOT" type="text" placeholder="553499999999" />
+            <small>Número usado como referência no projeto.</small>
+          </label>
+
+          <label>
+            Porta do painel
+            <input id="CONFIG_PORT" type="text" placeholder="3001" />
+            <small>Porta local onde o painel web fica disponível.</small>
+          </label>
+        </div>
+
+        <h3>Limites de envio</h3>
+        <div class="grid">
+
+          <label>
+            Intervalo entre mensagens (segundos)
+            <input id="SEND_MIN_INTERVAL_SECONDS" type="text" placeholder="20" />
+            <small>Evita disparos em sequência muito rápida.</small>
+          </label>
+
+          <label>
+            Máximo de mensagens por hora
+            <input id="SEND_MAX_PER_HOUR" type="text" placeholder="40" />
+            <small>Controle para reduzir risco de bloqueio.</small>
+          </label>
+
+          <label>
+            Janela início (hora)
+            <input id="SEND_ALLOWED_START_HOUR" type="text" placeholder="8" />
+            <small>Hora inicial permitida para disparos automáticos.</small>
+          </label>
+
+          <label>
+            Janela fim (hora)
+            <input id="SEND_ALLOWED_END_HOUR" type="text" placeholder="20" />
+            <small>Hora final permitida para disparos automáticos.</small>
+          </label>
+        </div>
+
+        <h3>Meta Cloud (opcional)</h3>
+        <div class="grid">
+          <label>
+            Versão da API Meta
+            <input id="WA_CLOUD_API_VERSION" type="text" placeholder="v21.0" />
+            <small>Somente para modo API (Meta Cloud).</small>
+          </label>
+
+          <label>
+            Phone Number ID (Meta)
+            <input id="WA_CLOUD_PHONE_NUMBER_ID" type="text" placeholder="123456789012345" />
+          </label>
+
+          <label class="full-width">
+            Access Token (Meta)
+            <input id="WA_CLOUD_ACCESS_TOKEN" type="text" placeholder="EAA..." />
+          </label>
+        </div>
+
+      </section>
+
+      <section class="card menu-section" id="section-cycles">
+        <h2>Ciclos</h2>
+        <p class="subtitle meta">Configure quantos ciclos quiser e defina uma hora diferente para cada dia de cada ciclo.</p>
+        <div class="grid">
+          <label>
+            Ciclo ativo
+            <select id="cycleSelect"></select>
+            <small>O bot usa o ciclo selecionado como ativo.</small>
+          </label>
+        </div>
+        <div class="actions inline-actions">
+          <button id="addCycleBtn" type="button" class="secondary">+ Novo ciclo</button>
+          <button id="deleteCycleBtn" type="button" class="remove">Remover ciclo</button>
+        </div>
+        <div id="cycleEditorContainer" class="cycle-editor">
+          <!-- Preenchido dinamicamente por app.js -->
+        </div>
+        <div class="actions inline-actions">
+          <button id="editCycleSettingsBtn" type="button" class="secondary">Configurar ciclo</button>
+          <button id="addCycleDayBtn" type="button" class="secondary">+ Adicionar dia</button>
+          <button id="saveCycleBtn" type="button" class="primary">Salvar ciclo</button>
+        </div>
+        <div id="cycleSettingsSummary" class="meta"></div>
+      </section>
+
+      <section class="card menu-section" id="section-qr">
+        <h2>Conexão do Bot (QR Code)</h2>
+        <p id="qrStatus" class="subtitle">Carregando status do bot...</p>
+        <div class="actions inline-actions">
+          <button id="startBotBtn" type="button" class="primary">Iniciar Bot</button>
+          <button id="refreshQrBtn" type="button" class="secondary">Atualizar QR</button>
+          <button id="disconnectQrBtn" type="button" class="remove">Desconectar sessão</button>
+        </div>
+        <div id="qrWrap" class="qr-wrap" style="display:none;">
+          <img id="qrImage" alt="QR Code do WhatsApp" />
+        </div>
+      </section>
+
+      <section class="card menu-section" id="section-recipients">
+        <h2>Destinatários (privado e grupo)</h2>
+        <div class="grid">
+          <label>
+            Nome
+            <input id="recipientName" type="text" placeholder="Ex.: João Coordenador" />
+          </label>
+
+          <label>
+            Tipo
+            <select id="recipientType">
+              <option value="private">Privado (usuário)</option>
+              <option value="group">Grupo</option>
+            </select>
+          </label>
+
+          <label>
+            Destino
+            <input id="recipientDestination" type="text" placeholder="Privado: 553499999999 | Grupo: ...@g.us" />
+            <small>Privado: informe número com DDI. Grupo: ID do grupo ou link.</small>
+          </label>
+        </div>
+        <div class="actions inline-actions">
+          <button id="addRecipientBtn" type="button" class="primary">Adicionar destinatário</button>
+        </div>
+        <div id="recipientsList" class="list"></div>
+      </section>
+
+      <section class="card menu-section" id="section-dispatch">
+        <h2>Disparo manual ou agendado</h2>
+        <p class="subtitle">Dica: marque um destinatário como padrão na lista acima para ele já vir selecionado aqui.</p>
+        <div class="grid">
+          <label>
+            Destinatário
+            <select id="dispatchRecipient" multiple size="6"></select>
+            <small>Você pode selecionar mais de um destinatário (Ctrl+clique ou Shift+clique).</small>
+          </label>
+
+          <label>
+            Origem da mensagem
+            <select id="dispatchSourceType">
+              <option value="cycle">Usar mensagem da Central (1 a 15)</option>
+              <option value="manual">Digitar mensagem manual</option>
+            </select>
+          </label>
+
+          <label id="cycleDayWrap">
+            Dia da Central de Mensagens
+            <select id="dispatchCycleDay"></select>
+          </label>
+
+          <label>
+            Tipo de envio
+            <select id="dispatchMode">
+              <option value="manual-now">Enviar agora</option>
+              <option value="scheduled">Agendar</option>
+            </select>
+          </label>
+
+          <label id="sendAtWrap" style="display:none;">
+            Data/hora do agendamento
+            <input id="dispatchSendAt" type="datetime-local" step="60" />
+            <small>Selecione data e hora no calendário/relógio.</small>
+          </label>
+
+          <label class="full-width">
+            Mensagem manual
+            <textarea id="dispatchMessageText" placeholder="Digite aqui uma mensagem direta..."></textarea>
+            <small>Se usar "Central", este campo será ignorado.</small>
+          </label>
+        </div>
+        <div class="actions inline-actions">
+          <button id="sendDispatchBtn" type="button" class="primary">Criar disparo</button>
+          <button id="testBotBtn" type="button" class="secondary">Testar Bot no destinatário</button>
+        </div>
+        <div id="botStatus" class="meta"></div>
+        <div id="dispatchesList" class="list"></div>
+      </section>
+
+      <section class="actions">
+        <button id="reloadBtn" type="button" class="secondary">Recarregar</button>
+        <button id="saveBtn" type="button" class="primary">Salvar configurações</button>
+      </section>
+
+      <p id="status" class="status"></p>
+        </div>
+      </div>
+    </main>
+
+    <footer class="container app-footer">
+      <p class="subtitle app-footer-text">
+        Criado por Italo Antonio Costa Felisbino •
+        <a href="https://github.com/italoantonio-dev" target="_blank" rel="noopener noreferrer">github.com/italoantonio-dev</a>
+      </p>
+    </footer>
+
+    <div id="recipientModal" class="modal-overlay" style="display:none;">
+      <div class="modal-card">
+        <h3>Editar destinatário</h3>
+        <div class="grid">
+          <label>
+            Nome
+            <input id="editRecipientName" type="text" placeholder="Ex.: Loja Centro" />
+          </label>
+
+          <label>
+            Tipo
+            <select id="editRecipientType">
+              <option value="private">Privado (usuário)</option>
+              <option value="group">Grupo</option>
+            </select>
+          </label>
+
+          <label class="full-width">
+            Destino
+            <input id="editRecipientDestination" type="text" placeholder="Privado: 553499999999 | Grupo: ...@g.us ou link" />
+          </label>
+        </div>
+        <div class="actions">
+          <button id="cancelEditRecipientBtn" type="button" class="secondary">Cancelar</button>
+          <button id="saveEditRecipientBtn" type="button" class="primary">Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="cycleDayModal" class="modal-overlay" style="display:none;">
+      <div class="modal-card">
+        <h3>Editar dia do ciclo</h3>
+        <div class="grid">
+          <label class="full-width">
+            Mensagem
+            <textarea id="editCycleMessage" placeholder="Mensagem do dia..."></textarea>
+          </label>
+          <label>
+            Horário (HH:mm)
+            <input id="editCycleTime" type="time" />
+          </label>
+          <label>
+            Status do dia
+            <select id="editCycleDayIsActive">
+              <option value="true">Ativo</option>
+              <option value="false">Inativo</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions">
+          <button id="cancelEditCycleDayBtn" type="button" class="secondary">Cancelar</button>
+          <button id="saveEditCycleDayBtn" type="button" class="primary">Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="cycleSettingsModal" class="modal-overlay" style="display:none;">
+      <div class="modal-card">
+        <h3>Configurações do ciclo</h3>
+        <div class="grid">
+          <label>
+            Data de início do ciclo
+            <input id="cycleStartDate" type="date" />
+          </label>
+          <label>
+            Status do ciclo
+            <select id="cycleIsActive">
+              <option value="true">Ativo</option>
+              <option value="false">Inativo</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions">
+          <button id="cancelCycleSettingsBtn" type="button" class="secondary">Cancelar</button>
+          <button id="saveCycleSettingsBtn" type="button" class="primary">Salvar configurações</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="runtime-config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
