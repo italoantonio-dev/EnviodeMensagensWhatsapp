@@ -312,6 +312,11 @@
               <option value="false">Inativo</option>
             </select>
           </label>
+          <label>
+            Repetir cada mensagem por (dias)
+            <input id="cycleRepeatInterval" type="number" min="1" max="365" value="1" />
+            <small style="color:var(--muted);font-size:0.82em;">1 = avança todo dia · 3 = repete a mesma mensagem por 3 dias</small>
+          </label>
         </div>
         <div class="actions">
           <button id="cancelCycleSettingsBtn" type="button" class="secondary">Cancelar</button>

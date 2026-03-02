@@ -60,10 +60,11 @@ const cycleStartDateInput = document.getElementById('cycleStartDate')
 const cycleIsActiveInput = document.getElementById('cycleIsActive')
 const saveCycleSettingsBtn = document.getElementById('saveCycleSettingsBtn')
 const cancelCycleSettingsBtn = document.getElementById('cancelCycleSettingsBtn')
+const cycleRepeatIntervalInput = document.getElementById('cycleRepeatInterval')
 
 let recipientsCache = []
 let cycleCache = []
-let cycleSettingsCache = { startDate: '', isActive: true }
+let cycleSettingsCache = { startDate: '', isActive: true, repeatIntervalDays: 1 }
 let cyclesMetaCache = []
 let currentCycleId = ''
 let currentCycleName = ''
@@ -249,7 +250,9 @@ function getTodayIsoDate() {
 
 function renderCycleSettingsSummary() {
   const cycleLabel = currentCycleName || 'Ciclo'
-  cycleSettingsSummary.textContent = `${cycleLabel} | Início: ${cycleSettingsCache.startDate || '-'} | Status: ${cycleSettingsCache.isActive ? 'Ativo' : 'Inativo'}`
+  const intervalo = cycleSettingsCache.repeatIntervalDays || 1
+  const intervaloTxt = intervalo === 1 ? 'Todo dia' : `A cada ${intervalo} dias`
+  cycleSettingsSummary.textContent = `${cycleLabel} | Início: ${cycleSettingsCache.startDate || '-'} | Status: ${cycleSettingsCache.isActive ? 'Ativo' : 'Inativo'} | Repetição: ${intervaloTxt}`
 }
 
 function renderCyclesSelector(cycles, selectedId) {
@@ -386,7 +389,7 @@ async function carregarListaCiclos(preferredId = '') {
   renderCyclesSelector(cycles, selectedId)
 
   if (!currentCycleId) {
-    cycleSettingsCache = { startDate: getTodayIsoDate(), isActive: true }
+    cycleSettingsCache = { startDate: getTodayIsoDate(), isActive: true, repeatIntervalDays: 1 }
     renderCycleSettingsSummary()
     renderCycleEditor([])
     return
@@ -407,13 +410,14 @@ async function carregarCiclo(cycleId = currentCycleId) {
     currentCycleName = data.cycleName || currentCycleName || 'Ciclo'
     cycleSettingsCache = {
       startDate: data.settings?.startDate || getTodayIsoDate(),
-      isActive: data.settings?.isActive !== false
+      isActive: data.settings?.isActive !== false,
+      repeatIntervalDays: data.settings?.repeatIntervalDays || 1
     }
     renderCycleSettingsSummary()
     renderCycleEditor(data.cycle || [])
   } catch (error) {
     console.error('Erro ao carregar ciclo:', error)
-    cycleSettingsCache = { startDate: getTodayIsoDate(), isActive: true }
+    cycleSettingsCache = { startDate: getTodayIsoDate(), isActive: true, repeatIntervalDays: 1 }
     renderCycleSettingsSummary()
     renderCycleEditor([])
   }
@@ -977,6 +981,7 @@ function salvarEdicaoDiaCiclo() {
 function abrirModalConfiguracaoCiclo() {
   cycleStartDateInput.value = cycleSettingsCache.startDate || ''
   cycleIsActiveInput.value = cycleSettingsCache.isActive ? 'true' : 'false'
+  cycleRepeatIntervalInput.value = cycleSettingsCache.repeatIntervalDays || 1
   cycleSettingsModal.style.display = 'flex'
 }
 
@@ -987,12 +992,13 @@ function fecharModalConfiguracaoCiclo() {
 function salvarConfiguracaoCicloLocal() {
   const startDate = (cycleStartDateInput.value || '').trim()
   const isActive = cycleIsActiveInput.value === 'true'
+  const repeatIntervalDays = Math.max(1, Math.floor(Number(cycleRepeatIntervalInput.value) || 1))
 
   if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
     throw new Error('Data de início inválida. Use YYYY-MM-DD.')
   }
 
-  cycleSettingsCache = { startDate, isActive }
+  cycleSettingsCache = { startDate, isActive, repeatIntervalDays }
   renderCycleSettingsSummary()
   fecharModalConfiguracaoCiclo()
 }

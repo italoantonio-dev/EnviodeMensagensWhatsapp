@@ -51,7 +51,8 @@ function obterDiaDoCicloAtual(dataRef = new Date()) {
   const inicio = startOfDay(toZonedTime(parseISO(cycleStartStr), BLUE_STAR_TIMEZONE))
 
   const diasPassados = Math.max(0, differenceInCalendarDays(hoje, inicio))
-  const diaDoCiclo = (diasPassados % cycle.length)
+  const intervalo = Math.max(1, Math.floor(Number(cycleSettings.repeatIntervalDays) || 1))
+  const diaDoCiclo = (Math.floor(diasPassados / intervalo) % cycle.length)
 
   return diaDoCiclo
 }

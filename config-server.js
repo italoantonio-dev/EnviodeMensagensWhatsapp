@@ -1085,6 +1085,11 @@ app.post('/api/cycle', (req, res) => {
       if (typeof settingsInput.isActive !== 'boolean') {
         return res.status(400).json({ ok: false, message: 'Campo de status ativo/inativo inválido.' })
       }
+
+      const rawInterval = Number(settingsInput.repeatIntervalDays)
+      if (settingsInput.repeatIntervalDays !== undefined && (!Number.isFinite(rawInterval) || rawInterval < 1)) {
+        return res.status(400).json({ ok: false, message: 'Intervalo de repetição deve ser um número >= 1.' })
+      }
     }
 
     const cycleNormalized = cycle.map((item) => ({
@@ -1095,9 +1100,11 @@ app.post('/api/cycle', (req, res) => {
 
     saveCycleConfig(cycleNormalized, cycleId)
     if (settingsInput) {
+      const repeatInterval = Math.max(1, Math.floor(Number(settingsInput.repeatIntervalDays) || 1))
       saveCycleSettings({
         startDate: sanitizeText(settingsInput.startDate),
-        isActive: Boolean(settingsInput.isActive)
+        isActive: Boolean(settingsInput.isActive),
+        repeatIntervalDays: repeatInterval
       }, cycleId)
     }
 
@@ -1116,7 +1123,8 @@ app.get('/api/cycles', (_req, res) => {
     daysCount: Array.isArray(cycle.days) ? cycle.days.length : 0,
     settings: {
       startDate: cycle.settings?.startDate || '',
-      isActive: cycle.settings?.isActive !== false
+      isActive: cycle.settings?.isActive !== false,
+      repeatIntervalDays: cycle.settings?.repeatIntervalDays || 1
     }
   }))
 
@@ -1136,7 +1144,8 @@ app.post('/api/cycles', (req, res) => {
     isSelected: false,
     settings: {
       startDate: new Date().toISOString().slice(0, 10),
-      isActive: true
+      isActive: true,
+      repeatIntervalDays: 1
     },
     days: []
   }

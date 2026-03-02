@@ -435,9 +435,12 @@ function normalizeCycleDay(item) {
 
 function normalizeCycleSettings(settings) {
   const today = getTodayIsoDate()
+  const rawInterval = Number(settings?.repeatIntervalDays)
+  const repeatIntervalDays = Number.isFinite(rawInterval) && rawInterval >= 1 ? Math.floor(rawInterval) : 1
   return {
     startDate: typeof settings?.startDate === 'string' && settings.startDate.trim() ? settings.startDate.trim() : today,
-    isActive: typeof settings?.isActive === 'boolean' ? settings.isActive : true
+    isActive: typeof settings?.isActive === 'boolean' ? settings.isActive : true,
+    repeatIntervalDays
   }
 }
 
