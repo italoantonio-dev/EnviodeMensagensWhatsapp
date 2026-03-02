@@ -14,7 +14,7 @@ Estrutura esperada: Array de objetos com propriedades `name`, `type` e `destinat
   {
     "name": "João Silva",
     "type": "private",
-    "destination": "5534988776655"
+    "destination": "(34) 98877-6655"
   },
   {
     "name": "Equipe Vendas",
@@ -28,7 +28,7 @@ Estrutura esperada: Array de objetos com propriedades `name`, `type` e `destinat
 - `name` (obrigatório): Nome do destinatário
 - `type` (obrigatório): `private` ou `group`
 - `destination` (obrigatório): 
-  - Tipo private: Número com DDI (ex: 5534988776655)
+  - Tipo private: Número BR com DDD (ex: 34988776655, (34) 98877-6655 ou +55 34 98877-6655)
   - Tipo group: ID do grupo com @g.us ou link de convite
 
 ### 2. **XML** (.xml)
@@ -42,7 +42,7 @@ Estrutura esperada: Elemento raiz `<recipients>` contendo múltiplos elementos `
   <recipient>
     <name>João Silva</name>
     <type>private</type>
-    <destination>5534988776655</destination>
+    <destination>(34) 98877-6655</destination>
   </recipient>
   <recipient>
     <name>Equipe Vendas</name>
@@ -77,7 +77,7 @@ O sistema reconhece nomes alternativos para maior flexibilidade:
   {
     "nome": "João Silva",
     "tipo": "private",
-    "numero": "5534988776655"
+    "numero": "34988776655"
   }
 ]
 ```
@@ -115,8 +115,8 @@ O sistema reconhece nomes alternativos para maior flexibilidade:
 2. **Para grupos de links:** Cole o link de convite completo
    - Exemplo: `https://chat.whatsapp.com/CÓDIGO`
 
-3. **Números:** Sempre use o formato internacional
-   - Exemplo: `5534988776655` (país=55, DDD=34, número=988776655)
+3. **Números:** Use padrão brasileiro com DDD
+  - Exemplos válidos: `34988776655`, `(34) 98877-6655`, `+55 34 98877-6655`
 
 4. **Erros:** Verifique a coluna "Erro" para identificar linhas com problemas
 

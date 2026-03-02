@@ -308,10 +308,52 @@ export function normalizePrivateJid(input) {
     return value
   }
 
-  const onlyDigits = value.replace(/\D/g, '')
+  const onlyDigits = normalizeBrazilianPhoneDigits(value)
   if (!onlyDigits) return ''
 
   return `${onlyDigits}@s.whatsapp.net`
+}
+
+function normalizeBrazilianPhoneDigits(input) {
+  const value = (input || '').toString().trim()
+  if (!value) return ''
+
+  let digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2)
+  }
+
+  if (digits.startsWith('55')) {
+    if (digits.length === 14 && digits[2] === '0') {
+      digits = `55${digits.slice(3)}`
+    }
+  } else if (digits.length === 10 || digits.length === 11) {
+    digits = `55${digits}`
+  } else {
+    return ''
+  }
+
+  if (digits.length !== 12 && digits.length !== 13) {
+    return ''
+  }
+
+  return digits
+}
+
+export function normalizePrivateDestinationBr(input) {
+  const digits = normalizeBrazilianPhoneDigits(input)
+  if (!digits) return ''
+
+  const ddd = digits.slice(2, 4)
+  const local = digits.slice(4)
+
+  if (local.length === 8) {
+    return `+55 (${ddd}) ${local.slice(0, 4)}-${local.slice(4)}`
+  }
+
+  return `+55 (${ddd}) ${local.slice(0, 5)}-${local.slice(5)}`
 }
 
 export function normalizeGroupJid(input) {
