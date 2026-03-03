@@ -119,6 +119,23 @@
           <button id="addCycleBtn" type="button" class="secondary">+ Novo ciclo</button>
           <button id="deleteCycleBtn" type="button" class="remove">Remover ciclo</button>
         </div>
+
+        <!-- Painel de destinatários do ciclo -->
+        <div class="cycle-recipients-panel">
+          <div class="cycle-recipients-header">
+            <div>
+              <h3 class="cycle-recipients-title">📋 Destinatários do ciclo</h3>
+              <p class="cycle-recipients-subtitle">Marque quem deve receber as mensagens deste ciclo. Se nenhum for marcado, será usado o destinatário padrão do sistema.</p>
+            </div>
+            <div class="cycle-recipients-header-actions">
+              <button id="cycleRecipSelectAllBtn" type="button" class="secondary cycle-recip-btn">Marcar todos</button>
+              <button id="cycleRecipDeselectAllBtn" type="button" class="secondary cycle-recip-btn">Desmarcar todos</button>
+            </div>
+          </div>
+          <div id="cycleRecipientsList" class="cycle-recipients-list"></div>
+          <div id="cycleRecipientsSummary" class="cycle-recipients-summary-bar"></div>
+        </div>
+
         <div id="cycleEditorContainer" class="cycle-editor">
           <!-- Preenchido dinamicamente por app.js -->
         </div>
@@ -289,15 +306,6 @@
               <option value="false">Inativo</option>
             </select>
           </label>
-          <div class="full-width">
-            <strong>Destinatários deste dia</strong>
-            <p class="meta" style="margin:4px 0 8px;">Marque quem deve receber a mensagem deste dia. Se nenhum for marcado, será usado o destinatário diário padrão.</p>
-            <div class="cycle-day-recipients-actions" style="margin-bottom:8px;">
-              <button id="cycleDaySelectAllBtn" type="button" class="secondary" style="font-size:0.82em;padding:4px 10px;">Marcar todos</button>
-              <button id="cycleDayDeselectAllBtn" type="button" class="secondary" style="font-size:0.82em;padding:4px 10px;">Desmarcar todos</button>
-            </div>
-            <div id="cycleDayRecipientsList" class="cycle-day-recipients-list"></div>
-          </div>
         </div>
         <div class="actions">
           <button id="cancelEditCycleDayBtn" type="button" class="secondary">Cancelar</button>

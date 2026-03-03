@@ -402,59 +402,163 @@ button.secondary {
   padding: 16px;
 }
 
-.cycle-day-recipients-list {
-  max-height: 220px;
-  overflow-y: auto;
+/* ─── Painel de destinatários do ciclo ─── */
+.cycle-recipients-panel {
+  margin: 16px 0;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 8px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.cycle-recipients-header {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.cycle-recipients-title {
+  margin: 0 0 4px;
+  font-size: 1.05em;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.cycle-recipients-subtitle {
+  margin: 0;
+  font-size: 0.82em;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.cycle-recipients-header-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cycle-recip-btn {
+  font-size: 0.8em !important;
+  padding: 5px 12px !important;
+  border-radius: 6px !important;
+  white-space: nowrap;
+}
+
+.cycle-recipients-list {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 4px;
 }
 
-.cycle-day-recipient-item {
+.cycle-recipients-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cycle-recipients-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cycle-recipients-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.cycle-recipient-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  user-select: none;
 }
 
-.cycle-day-recipient-item:hover {
-  background: #f3f4f6;
+.cycle-recipient-item:hover {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
 }
 
-.cycle-day-recipient-item input[type="checkbox"] {
+.cycle-recipient-item.is-checked {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.cycle-recipient-item input[type="checkbox"] {
   width: 18px;
   height: 18px;
   accent-color: #2563eb;
   cursor: pointer;
   flex-shrink: 0;
+  border-radius: 4px;
 }
 
-.cycle-day-recipient-item .recipient-label {
-  font-size: 0.92em;
-  color: #1f2937;
-}
-
-.cycle-day-recipient-item .recipient-label .recipient-type-tag {
-  font-size: 0.78em;
-  color: #6b7280;
-  margin-left: 4px;
-}
-
-.cycle-day-recipients-actions {
+.cycle-recipient-item .recipient-info {
   display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cycle-recipient-item .recipient-name {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cycle-recipient-item .recipient-type-badge {
+  font-size: 0.72em;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.cycle-recipient-item .recipient-type-badge.is-group {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.cycle-recipient-item .recipient-type-badge.is-private {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.cycle-recipients-summary-bar {
+  margin-top: 12px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.85em;
+  color: #475569;
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.cycle-day-recipients-summary {
-  font-size: 0.82em;
-  color: #6b7280;
-  margin-top: 2px;
+.cycle-recipients-summary-bar .summary-icon {
+  font-size: 1.1em;
+}
+
+.cycle-recipients-summary-bar .summary-count {
+  font-weight: 700;
+  color: #1e293b;
 }
 
 @media (max-width: 980px) {

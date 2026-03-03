@@ -61,13 +61,14 @@ const cycleIsActiveInput = document.getElementById('cycleIsActive')
 const saveCycleSettingsBtn = document.getElementById('saveCycleSettingsBtn')
 const cancelCycleSettingsBtn = document.getElementById('cancelCycleSettingsBtn')
 const cycleRepeatIntervalInput = document.getElementById('cycleRepeatInterval')
-const cycleDayRecipientsList = document.getElementById('cycleDayRecipientsList')
-const cycleDaySelectAllBtn = document.getElementById('cycleDaySelectAllBtn')
-const cycleDayDeselectAllBtn = document.getElementById('cycleDayDeselectAllBtn')
+const cycleRecipientsList = document.getElementById('cycleRecipientsList')
+const cycleRecipientsSummary = document.getElementById('cycleRecipientsSummary')
+const cycleRecipSelectAllBtn = document.getElementById('cycleRecipSelectAllBtn')
+const cycleRecipDeselectAllBtn = document.getElementById('cycleRecipDeselectAllBtn')
 
 let recipientsCache = []
 let cycleCache = []
-let cycleSettingsCache = { startDate: '', isActive: true, repeatIntervalDays: 1 }
+let cycleSettingsCache = { startDate: '', isActive: true, repeatIntervalDays: 1, recipients: [] }
 let cyclesMetaCache = []
 let currentCycleId = ''
 let currentCycleName = ''
@@ -309,14 +310,7 @@ function renderCycleEditor(cycle) {
     const resumo = (item.message || '').trim()
     const resumoCorto = resumo.length > 120 ? `${resumo.slice(0, 120)}...` : resumo
 
-    const recipientIds = Array.isArray(item.recipients) ? item.recipients : []
-    const recipientNames = recipientIds.map((id) => {
-      const r = recipientsCache.find((rc) => rc._id === id)
-      return r ? r.name : ''
-    }).filter(Boolean)
-    const recipientSummary = recipientNames.length
-      ? `Destinatários: ${recipientNames.join(', ')}`
-      : 'Destinatários: padrão do sistema'
+
 
     const removeBtn = document.createElement('button')
     removeBtn.type = 'button'
@@ -337,7 +331,6 @@ function renderCycleEditor(cycle) {
         <div class="meta">Horário: ${item.timeHHmm || '18:30'}</div>
         <div class="meta">Status: ${ativoDia ? 'Ativo' : 'Inativo'}</div>
         <div class="meta">${resumoCorto || 'Sem mensagem.'}</div>
-        <div class="meta cycle-day-recipients-summary">${recipientSummary}</div>
       </div>
     `
 
@@ -402,8 +395,9 @@ async function carregarListaCiclos(preferredId = '') {
   renderCyclesSelector(cycles, selectedId)
 
   if (!currentCycleId) {
-    cycleSettingsCache = { startDate: getTodayIsoDate(), isActive: true, repeatIntervalDays: 1 }
+    cycleSettingsCache = { startDate: getTodayIsoDate(), isActive: true, repeatIntervalDays: 1, recipients: [] }
     renderCycleSettingsSummary()
+    renderCycleRecipients()
     renderCycleEditor([])
     return
   }
@@ -424,14 +418,17 @@ async function carregarCiclo(cycleId = currentCycleId) {
     cycleSettingsCache = {
       startDate: data.settings?.startDate || getTodayIsoDate(),
       isActive: data.settings?.isActive !== false,
-      repeatIntervalDays: data.settings?.repeatIntervalDays || 1
+      repeatIntervalDays: data.settings?.repeatIntervalDays || 1,
+      recipients: Array.isArray(data.settings?.recipients) ? data.settings.recipients : []
     }
     renderCycleSettingsSummary()
+    renderCycleRecipients()
     renderCycleEditor(data.cycle || [])
   } catch (error) {
     console.error('Erro ao carregar ciclo:', error)
-    cycleSettingsCache = { startDate: getTodayIsoDate(), isActive: true, repeatIntervalDays: 1 }
+    cycleSettingsCache = { startDate: getTodayIsoDate(), isActive: true, repeatIntervalDays: 1, recipients: [] }
     renderCycleSettingsSummary()
+    renderCycleRecipients()
     renderCycleEditor([])
   }
 }
@@ -754,6 +751,7 @@ async function carregarDadosBanco() {
   renderRecipients(recipients)
   renderDispatches(dispatches)
   renderBotStatus(botStatus)
+  renderCycleRecipients()
 }
 
 async function addRecipient() {
@@ -938,7 +936,7 @@ async function salvarConfiguracoes() {
 }
 
 function adicionarDiaCiclo() {
-  cycleCache.push({ message: '', timeHHmm: '18:30', isActive: true, recipients: [] })
+  cycleCache.push({ message: '', timeHHmm: '18:30', isActive: true })
   renderCycleEditor(cycleCache)
 }
 
@@ -955,46 +953,85 @@ function abrirModalEdicaoDiaCiclo(index) {
   editCycleMessage.value = item.message || ''
   editCycleTime.value = item.timeHHmm || '18:30'
   editCycleDayIsActive.value = item.isActive === false ? 'false' : 'true'
-
-  // Renderizar checkboxes de destinatários
-  const selectedIds = Array.isArray(item.recipients) ? item.recipients : []
-  renderCycleDayRecipients(selectedIds)
-
   cycleDayModal.style.display = 'flex'
 }
 
-function renderCycleDayRecipients(selectedIds) {
-  cycleDayRecipientsList.innerHTML = ''
+function renderCycleRecipients() {
+  cycleRecipientsList.innerHTML = ''
 
   if (!recipientsCache.length) {
-    cycleDayRecipientsList.innerHTML = '<div class="meta">Nenhum destinatário cadastrado. Cadastre destinatários primeiro.</div>'
+    cycleRecipientsList.innerHTML = '<div class="meta" style="padding:16px;grid-column:1/-1;">Nenhum destinatário cadastrado. Cadastre na aba "Destinatários" primeiro.</div>'
+    updateCycleRecipientsSummary()
     return
   }
 
+  const selectedIds = Array.isArray(cycleSettingsCache.recipients) ? cycleSettingsCache.recipients : []
+
   recipientsCache.forEach((recipient) => {
     const label = document.createElement('label')
-    label.className = 'cycle-day-recipient-item'
+    const isChecked = selectedIds.includes(recipient._id)
+    label.className = `cycle-recipient-item${isChecked ? ' is-checked' : ''}`
 
     const checkbox = document.createElement('input')
     checkbox.type = 'checkbox'
     checkbox.value = recipient._id
-    checkbox.checked = selectedIds.includes(recipient._id)
+    checkbox.checked = isChecked
     checkbox.dataset.recipientId = recipient._id
 
-    const span = document.createElement('span')
-    span.className = 'recipient-label'
-    const typeTag = recipient.type === 'group' ? 'Grupo' : 'Privado'
-    span.innerHTML = `${recipient.name} <span class="recipient-type-tag">(${typeTag})</span>`
+    checkbox.addEventListener('change', () => {
+      label.classList.toggle('is-checked', checkbox.checked)
+      syncCycleRecipientsToCache()
+      updateCycleRecipientsSummary()
+    })
+
+    const info = document.createElement('div')
+    info.className = 'recipient-info'
+
+    const nameEl = document.createElement('span')
+    nameEl.className = 'recipient-name'
+    nameEl.textContent = recipient.name
+
+    const isGroup = recipient.type === 'group'
+    const badge = document.createElement('span')
+    badge.className = `recipient-type-badge ${isGroup ? 'is-group' : 'is-private'}`
+    badge.textContent = isGroup ? 'Grupo' : 'Privado'
+
+    info.appendChild(nameEl)
+    info.appendChild(badge)
 
     label.appendChild(checkbox)
-    label.appendChild(span)
-    cycleDayRecipientsList.appendChild(label)
+    label.appendChild(info)
+    cycleRecipientsList.appendChild(label)
   })
+
+  updateCycleRecipientsSummary()
 }
 
-function getSelectedCycleDayRecipientIds() {
-  const checkboxes = cycleDayRecipientsList.querySelectorAll('input[type="checkbox"]:checked')
-  return Array.from(checkboxes).map((cb) => cb.value)
+function syncCycleRecipientsToCache() {
+  const checkboxes = cycleRecipientsList.querySelectorAll('input[type="checkbox"]:checked')
+  cycleSettingsCache.recipients = Array.from(checkboxes).map((cb) => cb.value)
+}
+
+function updateCycleRecipientsSummary() {
+  const total = recipientsCache.length
+  const selected = Array.isArray(cycleSettingsCache.recipients) ? cycleSettingsCache.recipients.length : 0
+
+  if (total === 0) {
+    cycleRecipientsSummary.innerHTML = '<span class="summary-icon">⚠️</span> Nenhum destinatário cadastrado.'
+    return
+  }
+
+  if (selected === 0) {
+    cycleRecipientsSummary.innerHTML = '<span class="summary-icon">ℹ️</span> Nenhum selecionado — será usado o destinatário padrão do sistema.'
+    return
+  }
+
+  const names = cycleSettingsCache.recipients.map((id) => {
+    const r = recipientsCache.find((rc) => rc._id === id)
+    return r ? r.name : ''
+  }).filter(Boolean)
+
+  cycleRecipientsSummary.innerHTML = `<span class="summary-icon">✅</span> <span class="summary-count">${selected}</span> de ${total} selecionado(s): ${names.join(', ')}`
 }
 
 function fecharModalEdicaoDiaCiclo() {
@@ -1023,8 +1060,7 @@ function salvarEdicaoDiaCiclo() {
     ...cycleCache[editingCycleIndex],
     message,
     timeHHmm,
-    isActive,
-    recipients: getSelectedCycleDayRecipientIds()
+    isActive
   }
 
   renderCycleEditor(cycleCache)
@@ -1051,7 +1087,7 @@ function salvarConfiguracaoCicloLocal() {
     throw new Error('Data de início inválida. Use YYYY-MM-DD.')
   }
 
-  cycleSettingsCache = { startDate, isActive, repeatIntervalDays }
+  cycleSettingsCache = { startDate, isActive, repeatIntervalDays, recipients: cycleSettingsCache.recipients || [] }
   renderCycleSettingsSummary()
   fecharModalConfiguracaoCiclo()
 }
@@ -1064,8 +1100,7 @@ async function salvarCiclo() {
     const cycle = cycleCache.map((item) => ({
       message: (item.message || '').trim(),
       timeHHmm: (item.timeHHmm || '18:30').trim(),
-      isActive: item.isActive !== false,
-      recipients: Array.isArray(item.recipients) ? item.recipients : []
+      isActive: item.isActive !== false
     }))
 
     if (cycle.length === 0) {
@@ -1283,14 +1318,24 @@ cycleDayModal.addEventListener('click', (event) => {
   }
 })
 
-cycleDaySelectAllBtn.addEventListener('click', () => {
-  const checkboxes = cycleDayRecipientsList.querySelectorAll('input[type="checkbox"]')
-  checkboxes.forEach((cb) => { cb.checked = true })
+cycleRecipSelectAllBtn.addEventListener('click', () => {
+  const checkboxes = cycleRecipientsList.querySelectorAll('input[type="checkbox"]')
+  checkboxes.forEach((cb) => {
+    cb.checked = true
+    cb.closest('.cycle-recipient-item')?.classList.add('is-checked')
+  })
+  syncCycleRecipientsToCache()
+  updateCycleRecipientsSummary()
 })
 
-cycleDayDeselectAllBtn.addEventListener('click', () => {
-  const checkboxes = cycleDayRecipientsList.querySelectorAll('input[type="checkbox"]')
-  checkboxes.forEach((cb) => { cb.checked = false })
+cycleRecipDeselectAllBtn.addEventListener('click', () => {
+  const checkboxes = cycleRecipientsList.querySelectorAll('input[type="checkbox"]')
+  checkboxes.forEach((cb) => {
+    cb.checked = false
+    cb.closest('.cycle-recipient-item')?.classList.remove('is-checked')
+  })
+  syncCycleRecipientsToCache()
+  updateCycleRecipientsSummary()
 })
 
 cancelCycleSettingsBtn.addEventListener('click', () => {

@@ -1095,17 +1095,21 @@ app.post('/api/cycle', (req, res) => {
     const cycleNormalized = cycle.map((item) => ({
       message: sanitizeText(item.message),
       timeHHmm: sanitizeText(item.timeHHmm),
-      isActive: item.isActive !== false,
-      recipients: Array.isArray(item.recipients) ? item.recipients.map((id) => sanitizeText(id)).filter(Boolean) : []
+      isActive: item.isActive !== false
     }))
 
     saveCycleConfig(cycleNormalized, cycleId)
     if (settingsInput) {
       const repeatInterval = Math.max(1, Math.floor(Number(settingsInput.repeatIntervalDays) || 1))
+      const recipientsNorm = Array.isArray(settingsInput.recipients)
+        ? settingsInput.recipients.map((id) => sanitizeText(id)).filter(Boolean)
+        : []
+
       saveCycleSettings({
         startDate: sanitizeText(settingsInput.startDate),
         isActive: Boolean(settingsInput.isActive),
-        repeatIntervalDays: repeatInterval
+        repeatIntervalDays: repeatInterval,
+        recipients: recipientsNorm
       }, cycleId)
     }
 

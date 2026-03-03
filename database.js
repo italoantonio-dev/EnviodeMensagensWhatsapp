@@ -440,7 +440,8 @@ function normalizeCycleSettings(settings) {
   return {
     startDate: typeof settings?.startDate === 'string' && settings.startDate.trim() ? settings.startDate.trim() : today,
     isActive: typeof settings?.isActive === 'boolean' ? settings.isActive : true,
-    repeatIntervalDays
+    repeatIntervalDays,
+    recipients: Array.isArray(settings?.recipients) ? settings.recipients : []
   }
 }
 

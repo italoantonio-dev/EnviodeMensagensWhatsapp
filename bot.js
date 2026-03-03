@@ -382,12 +382,12 @@ async function enviarCicloSeNecessario(sock) {
     return // Já foi enviado hoje para este dia
   }
 
-  // Verifica se o dia tem destinatários específicos configurados
-  const dayRecipientIds = Array.isArray(itemCiclo.recipients) ? itemCiclo.recipients.filter(Boolean) : []
+  // Verifica se o ciclo tem destinatários específicos configurados
+  const cycleRecipientIds = Array.isArray(cycleSettings.recipients) ? cycleSettings.recipients.filter(Boolean) : []
 
-  if (dayRecipientIds.length > 0) {
-    // Enviar para cada destinatário selecionado no dia
-    const recipients = await recipientsDb.find({ _id: { $in: dayRecipientIds } })
+  if (cycleRecipientIds.length > 0) {
+    // Enviar para cada destinatário selecionado no ciclo
+    const recipients = await recipientsDb.find({ _id: { $in: cycleRecipientIds } })
     const recipientsList = Array.isArray(recipients) ? recipients : []
 
     if (!recipientsList.length) {
