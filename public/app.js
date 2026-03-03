@@ -61,6 +61,9 @@ const cycleIsActiveInput = document.getElementById('cycleIsActive')
 const saveCycleSettingsBtn = document.getElementById('saveCycleSettingsBtn')
 const cancelCycleSettingsBtn = document.getElementById('cancelCycleSettingsBtn')
 const cycleRepeatIntervalInput = document.getElementById('cycleRepeatInterval')
+const cycleDayRecipientsList = document.getElementById('cycleDayRecipientsList')
+const cycleDaySelectAllBtn = document.getElementById('cycleDaySelectAllBtn')
+const cycleDayDeselectAllBtn = document.getElementById('cycleDayDeselectAllBtn')
 
 let recipientsCache = []
 let cycleCache = []
@@ -306,6 +309,15 @@ function renderCycleEditor(cycle) {
     const resumo = (item.message || '').trim()
     const resumoCorto = resumo.length > 120 ? `${resumo.slice(0, 120)}...` : resumo
 
+    const recipientIds = Array.isArray(item.recipients) ? item.recipients : []
+    const recipientNames = recipientIds.map((id) => {
+      const r = recipientsCache.find((rc) => rc._id === id)
+      return r ? r.name : ''
+    }).filter(Boolean)
+    const recipientSummary = recipientNames.length
+      ? `Destinatários: ${recipientNames.join(', ')}`
+      : 'Destinatários: padrão do sistema'
+
     const removeBtn = document.createElement('button')
     removeBtn.type = 'button'
     removeBtn.className = 'remove cycle-remove-btn'
@@ -325,6 +337,7 @@ function renderCycleEditor(cycle) {
         <div class="meta">Horário: ${item.timeHHmm || '18:30'}</div>
         <div class="meta">Status: ${ativoDia ? 'Ativo' : 'Inativo'}</div>
         <div class="meta">${resumoCorto || 'Sem mensagem.'}</div>
+        <div class="meta cycle-day-recipients-summary">${recipientSummary}</div>
       </div>
     `
 
@@ -925,7 +938,7 @@ async function salvarConfiguracoes() {
 }
 
 function adicionarDiaCiclo() {
-  cycleCache.push({ message: '', timeHHmm: '18:30', isActive: true })
+  cycleCache.push({ message: '', timeHHmm: '18:30', isActive: true, recipients: [] })
   renderCycleEditor(cycleCache)
 }
 
@@ -942,7 +955,46 @@ function abrirModalEdicaoDiaCiclo(index) {
   editCycleMessage.value = item.message || ''
   editCycleTime.value = item.timeHHmm || '18:30'
   editCycleDayIsActive.value = item.isActive === false ? 'false' : 'true'
+
+  // Renderizar checkboxes de destinatários
+  const selectedIds = Array.isArray(item.recipients) ? item.recipients : []
+  renderCycleDayRecipients(selectedIds)
+
   cycleDayModal.style.display = 'flex'
+}
+
+function renderCycleDayRecipients(selectedIds) {
+  cycleDayRecipientsList.innerHTML = ''
+
+  if (!recipientsCache.length) {
+    cycleDayRecipientsList.innerHTML = '<div class="meta">Nenhum destinatário cadastrado. Cadastre destinatários primeiro.</div>'
+    return
+  }
+
+  recipientsCache.forEach((recipient) => {
+    const label = document.createElement('label')
+    label.className = 'cycle-day-recipient-item'
+
+    const checkbox = document.createElement('input')
+    checkbox.type = 'checkbox'
+    checkbox.value = recipient._id
+    checkbox.checked = selectedIds.includes(recipient._id)
+    checkbox.dataset.recipientId = recipient._id
+
+    const span = document.createElement('span')
+    span.className = 'recipient-label'
+    const typeTag = recipient.type === 'group' ? 'Grupo' : 'Privado'
+    span.innerHTML = `${recipient.name} <span class="recipient-type-tag">(${typeTag})</span>`
+
+    label.appendChild(checkbox)
+    label.appendChild(span)
+    cycleDayRecipientsList.appendChild(label)
+  })
+}
+
+function getSelectedCycleDayRecipientIds() {
+  const checkboxes = cycleDayRecipientsList.querySelectorAll('input[type="checkbox"]:checked')
+  return Array.from(checkboxes).map((cb) => cb.value)
 }
 
 function fecharModalEdicaoDiaCiclo() {
@@ -971,7 +1023,8 @@ function salvarEdicaoDiaCiclo() {
     ...cycleCache[editingCycleIndex],
     message,
     timeHHmm,
-    isActive
+    isActive,
+    recipients: getSelectedCycleDayRecipientIds()
   }
 
   renderCycleEditor(cycleCache)
@@ -1011,7 +1064,8 @@ async function salvarCiclo() {
     const cycle = cycleCache.map((item) => ({
       message: (item.message || '').trim(),
       timeHHmm: (item.timeHHmm || '18:30').trim(),
-      isActive: item.isActive !== false
+      isActive: item.isActive !== false,
+      recipients: Array.isArray(item.recipients) ? item.recipients : []
     }))
 
     if (cycle.length === 0) {
@@ -1227,6 +1281,16 @@ cycleDayModal.addEventListener('click', (event) => {
   if (event.target === cycleDayModal) {
     fecharModalEdicaoDiaCiclo()
   }
+})
+
+cycleDaySelectAllBtn.addEventListener('click', () => {
+  const checkboxes = cycleDayRecipientsList.querySelectorAll('input[type="checkbox"]')
+  checkboxes.forEach((cb) => { cb.checked = true })
+})
+
+cycleDayDeselectAllBtn.addEventListener('click', () => {
+  const checkboxes = cycleDayRecipientsList.querySelectorAll('input[type="checkbox"]')
+  checkboxes.forEach((cb) => { cb.checked = false })
 })
 
 cancelCycleSettingsBtn.addEventListener('click', () => {

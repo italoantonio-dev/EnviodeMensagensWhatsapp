@@ -382,7 +382,52 @@ async function enviarCicloSeNecessario(sock) {
     return // Já foi enviado hoje para este dia
   }
 
-  // Resolve o grupo alvo
+  // Verifica se o dia tem destinatários específicos configurados
+  const dayRecipientIds = Array.isArray(itemCiclo.recipients) ? itemCiclo.recipients.filter(Boolean) : []
+
+  if (dayRecipientIds.length > 0) {
+    // Enviar para cada destinatário selecionado no dia
+    const recipients = await recipientsDb.find({ _id: { $in: dayRecipientIds } })
+    const recipientsList = Array.isArray(recipients) ? recipients : []
+
+    if (!recipientsList.length) {
+      console.log(`Ciclo Dia ${diaDoCiclo + 1}: destinatários configurados não encontrados no banco.`)
+      return
+    }
+
+    let enviados = 0
+    for (const recipient of recipientsList) {
+      try {
+        const jidDestino = await resolverJidDestinatario(sock, recipient)
+        if (!jidDestino) {
+          console.log(`Ciclo Dia ${diaDoCiclo + 1}: não foi possível resolver JID para ${recipient.name}`)
+          continue
+        }
+
+        await sock.sendMessage(jidDestino, { text: itemCiclo.message })
+        enviados++
+        console.log(`Ciclo Dia ${diaDoCiclo + 1}: enviado para ${recipient.name}`)
+      } catch (err) {
+        console.log(`Ciclo Dia ${diaDoCiclo + 1}: falha ao enviar para ${recipient.name}: ${err.message}`)
+      }
+    }
+
+    if (enviados > 0) {
+      ultimoEnvioDiario[chaveDiario] = new Date().toISOString()
+      salvarStatusBot({
+        lastCycleSent: ultimoEnvioDiario,
+        lastSentAt: new Date().toISOString(),
+        lastError: '',
+        logMessage: `Ciclo Dia ${diaDoCiclo + 1}/${cycle.length} enviado para ${enviados} destinatário(s).`,
+        logLevel: 'info',
+        logSource: 'bot'
+      })
+    }
+
+    return
+  }
+
+  // Fallback: resolve o grupo alvo padrão
   let grupoBlueStarProgramado = await resolverGrupoBlueStar(sock)
   if (!grupoBlueStarProgramado) {
     return

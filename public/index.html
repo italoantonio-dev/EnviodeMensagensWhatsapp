@@ -289,6 +289,15 @@
               <option value="false">Inativo</option>
             </select>
           </label>
+          <div class="full-width">
+            <strong>Destinatários deste dia</strong>
+            <p class="meta" style="margin:4px 0 8px;">Marque quem deve receber a mensagem deste dia. Se nenhum for marcado, será usado o destinatário diário padrão.</p>
+            <div class="cycle-day-recipients-actions" style="margin-bottom:8px;">
+              <button id="cycleDaySelectAllBtn" type="button" class="secondary" style="font-size:0.82em;padding:4px 10px;">Marcar todos</button>
+              <button id="cycleDayDeselectAllBtn" type="button" class="secondary" style="font-size:0.82em;padding:4px 10px;">Desmarcar todos</button>
+            </div>
+            <div id="cycleDayRecipientsList" class="cycle-day-recipients-list"></div>
+          </div>
         </div>
         <div class="actions">
           <button id="cancelEditCycleDayBtn" type="button" class="secondary">Cancelar</button>

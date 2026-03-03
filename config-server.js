@@ -1095,7 +1095,8 @@ app.post('/api/cycle', (req, res) => {
     const cycleNormalized = cycle.map((item) => ({
       message: sanitizeText(item.message),
       timeHHmm: sanitizeText(item.timeHHmm),
-      isActive: item.isActive !== false
+      isActive: item.isActive !== false,
+      recipients: Array.isArray(item.recipients) ? item.recipients.map((id) => sanitizeText(id)).filter(Boolean) : []
     }))
 
     saveCycleConfig(cycleNormalized, cycleId)
