@@ -561,6 +561,158 @@ button.secondary {
   color: #1e293b;
 }
 
+/* Botão Importar do WhatsApp */
+.wpp-import-btn {
+  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(37, 211, 102, 0.3);
+}
+
+.wpp-import-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+}
+
+/* Container de grupos do WhatsApp */
+.wpp-groups-container {
+  margin-bottom: 14px;
+  border: 2px solid #25d366;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  padding: 14px;
+  animation: wppSlideDown 0.3s ease;
+}
+
+@keyframes wppSlideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.wpp-groups-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.wpp-groups-label {
+  font-weight: 700;
+  font-size: 0.95em;
+  color: #166534;
+}
+
+.wpp-groups-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.wpp-confirm-btn {
+  background: #25d366 !important;
+  border-color: #25d366 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.wpp-confirm-btn:hover {
+  background: #1ea855 !important;
+}
+
+.wpp-groups-list {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 4px;
+}
+
+.wpp-groups-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wpp-groups-list::-webkit-scrollbar-thumb {
+  background: #86efac;
+  border-radius: 3px;
+}
+
+.wpp-group-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  user-select: none;
+}
+
+.wpp-group-item:hover {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.wpp-group-item.is-checked {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.wpp-group-item.already-imported {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.wpp-group-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #25d366;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.wpp-group-item .recipient-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.wpp-group-item .recipient-name {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wpp-group-meta {
+  font-size: 0.75em;
+  color: #64748b;
+}
+
+.wpp-group-meta.imported-tag {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.wpp-groups-status {
+  margin-top: 8px;
+  font-size: 0.82em;
+  color: #475569;
+  text-align: center;
+  padding: 4px;
+}
+
 @media (max-width: 980px) {
   .dashboard-layout {
     grid-template-columns: 1fr;

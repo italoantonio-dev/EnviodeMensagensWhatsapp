@@ -34,6 +34,7 @@ const ENV_EXAMPLE_PATH = path.join(__dirname, 'env-example')
 const BOT_STATUS_PATH = path.join(__dirname, 'data', 'bot-status.json')
 const BOT_COMMAND_PATH = path.join(__dirname, 'data', 'bot-command.json')
 const BOT_PROCESS_PATH = path.join(__dirname, 'data', 'bot-process.json')
+const WPP_GROUPS_PATH = path.join(__dirname, 'data', 'whatsapp-groups.json')
 const BAILEYS_AUTH_DIR = path.join(__dirname, 'baileys-auth')
 let botStartInProgress = false
 
@@ -425,6 +426,80 @@ app.get('/api/recipients', async (_req, res) => {
     res.json(mapped)
   } catch (error) {
     res.status(500).json({ ok: false, message: `Falha ao carregar destinatários: ${error.message}` })
+  }
+})
+
+app.get('/api/whatsapp-groups', (_req, res) => {
+  try {
+    if (!fs.existsSync(WPP_GROUPS_PATH)) {
+      return res.json({ groups: [], updatedAt: '' })
+    }
+    const data = JSON.parse(fs.readFileSync(WPP_GROUPS_PATH, 'utf-8'))
+    res.json({
+      groups: Array.isArray(data.groups) ? data.groups : [],
+      updatedAt: data.updatedAt || ''
+    })
+  } catch (error) {
+    res.status(500).json({ ok: false, message: `Falha ao ler grupos do WhatsApp: ${error.message}` })
+  }
+})
+
+app.post('/api/whatsapp-groups/refresh', (_req, res) => {
+  try {
+    fs.writeFileSync(
+      BOT_COMMAND_PATH,
+      JSON.stringify({ action: 'fetch-groups', requestedAt: new Date().toISOString() }, null, 2),
+      'utf-8'
+    )
+    res.json({ ok: true, message: 'Comando de atualização enviado. Os grupos serão carregados em instantes.' })
+  } catch (error) {
+    res.status(500).json({ ok: false, message: `Falha ao solicitar atualização dos grupos: ${error.message}` })
+  }
+})
+
+app.post('/api/whatsapp-groups/import', async (req, res) => {
+  try {
+    const groupIds = Array.isArray(req.body?.groupIds) ? req.body.groupIds : []
+    if (!groupIds.length) {
+      return res.status(400).json({ ok: false, message: 'Nenhum grupo selecionado para importar.' })
+    }
+
+    let groupsData = { groups: [] }
+    if (fs.existsSync(WPP_GROUPS_PATH)) {
+      try {
+        groupsData = JSON.parse(fs.readFileSync(WPP_GROUPS_PATH, 'utf-8'))
+      } catch { /* ignore */ }
+    }
+    const allGroups = Array.isArray(groupsData.groups) ? groupsData.groups : []
+
+    let imported = 0
+    let skipped = 0
+
+    for (const gid of groupIds) {
+      const group = allGroups.find((g) => g.id === gid)
+      if (!group) continue
+
+      const jid = group.id
+      const existing = await recipientsDb.findOne({ jid })
+      if (existing) {
+        skipped++
+        continue
+      }
+
+      await recipientsDb.insert({
+        name: group.name || group.id,
+        type: 'group',
+        destination: group.id,
+        jid,
+        isDefault: false,
+        isCycleTarget: false
+      })
+      imported++
+    }
+
+    res.json({ ok: true, imported, skipped, message: `${imported} grupo(s) importado(s)${skipped > 0 ? `, ${skipped} já existia(m)` : ''}.` })
+  } catch (error) {
+    res.status(500).json({ ok: false, message: `Falha ao importar grupos: ${error.message}` })
   }
 })
 

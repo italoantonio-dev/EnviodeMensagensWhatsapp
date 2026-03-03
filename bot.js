@@ -13,6 +13,7 @@ import { dispatchesDb, recipientsDb, initDatabase, normalizeRecipientJid, loadCy
 const BLUE_STAR_TIMEZONE = 'America/Sao_Paulo'
 const BOT_STATUS_ARQUIVO = './data/bot-status.json'
 const BOT_COMMAND_ARQUIVO = './data/bot-command.json'
+const WPP_GROUPS_ARQUIVO = './data/whatsapp-groups.json'
 const BAILEYS_AUTH_DIR = './baileys-auth'
 const MAX_STATUS_EVENTS = 200
 let reconnectScheduled = false
@@ -228,6 +229,30 @@ function salvarComandoBot(payload) {
   fs.writeFileSync(BOT_COMMAND_ARQUIVO, JSON.stringify(payload, null, 2), 'utf-8')
 }
 
+async function buscarGruposWhatsApp(sock) {
+  if (!sock || typeof sock.groupFetchAllParticipating !== 'function') {
+    console.log('Socket não disponível para buscar grupos.')
+    return []
+  }
+
+  try {
+    const grupos = await sock.groupFetchAllParticipating()
+    const lista = Object.values(grupos).map((g) => ({
+      id: g.id,
+      name: g.subject || g.id,
+      participants: Array.isArray(g.participants) ? g.participants.length : 0,
+      type: 'group'
+    }))
+
+    fs.writeFileSync(WPP_GROUPS_ARQUIVO, JSON.stringify({ groups: lista, updatedAt: new Date().toISOString() }, null, 2), 'utf-8')
+    console.log(`📋 ${lista.length} grupo(s) do WhatsApp salvo(s) em ${WPP_GROUPS_ARQUIVO}`)
+    return lista
+  } catch (err) {
+    console.log('Falha ao buscar grupos do WhatsApp:', err.message)
+    return []
+  }
+}
+
 function limparAuthBaileys() {
   try {
     if (fs.existsSync(BAILEYS_AUTH_DIR)) {
@@ -241,7 +266,27 @@ function limparAuthBaileys() {
 
 async function processarComandoBotPendente() {
   const comando = lerComandoBot()
-  if (!comando || comando.action !== 'disconnect') {
+  if (!comando) {
+    return
+  }
+
+  if (comando.action === 'fetch-groups') {
+    const requestedAt = (comando.requestedAt || '').toString().trim()
+    const processedAt = (comando.processedAt || '').toString().trim()
+    if (processedAt || !requestedAt || requestedAt === ultimoComandoProcessadoEm) {
+      return
+    }
+    ultimoComandoProcessadoEm = requestedAt
+    console.log('Comando recebido: buscar grupos do WhatsApp.')
+    await buscarGruposWhatsApp(activeSock)
+    salvarComandoBot({
+      ...comando,
+      processedAt: new Date().toISOString()
+    })
+    return
+  }
+
+  if (comando.action !== 'disconnect') {
     return
   }
 
@@ -904,6 +949,11 @@ async function start() {
           logLevel: 'info',
           logSource: 'connection'
         })
+        try {
+          await buscarGruposWhatsApp(sock)
+        } catch (err) {
+          console.log('Falha ao buscar grupos na conexão:', err.message)
+        }
         try {
           await processarFilaDisparos(sock)
         } catch (err) {

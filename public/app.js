@@ -65,6 +65,13 @@ const cycleRecipientsList = document.getElementById('cycleRecipientsList')
 const cycleRecipientsSummary = document.getElementById('cycleRecipientsSummary')
 const cycleRecipSelectAllBtn = document.getElementById('cycleRecipSelectAllBtn')
 const cycleRecipDeselectAllBtn = document.getElementById('cycleRecipDeselectAllBtn')
+const importWppGroupsBtn = document.getElementById('importWppGroupsBtn')
+const wppGroupsContainer = document.getElementById('wppGroupsContainer')
+const wppGroupsList = document.getElementById('wppGroupsList')
+const wppGroupsStatus = document.getElementById('wppGroupsStatus')
+const wppGroupsSelectAllBtn = document.getElementById('wppGroupsSelectAllBtn')
+const wppGroupsConfirmImportBtn = document.getElementById('wppGroupsConfirmImportBtn')
+const wppGroupsCloseBtn = document.getElementById('wppGroupsCloseBtn')
 
 let recipientsCache = []
 let cycleCache = []
@@ -1034,6 +1041,123 @@ function updateCycleRecipientsSummary() {
   cycleRecipientsSummary.innerHTML = `<span class="summary-icon">✅</span> <span class="summary-count">${selected}</span> de ${total} selecionado(s): ${names.join(', ')}`
 }
 
+async function abrirPainelImportarGruposWpp() {
+  wppGroupsContainer.style.display = 'block'
+  wppGroupsList.innerHTML = '<div class="meta" style="padding:16px;text-align:center;">Carregando grupos do WhatsApp...</div>'
+  wppGroupsStatus.innerHTML = ''
+
+  try {
+    await fetch('/api/whatsapp-groups/refresh', { method: 'POST' })
+    await new Promise((r) => setTimeout(r, 3000))
+
+    const res = await fetch('/api/whatsapp-groups')
+    const data = await res.json()
+    const groups = Array.isArray(data.groups) ? data.groups : []
+
+    if (!groups.length) {
+      wppGroupsList.innerHTML = '<div class="meta" style="padding:16px;text-align:center;">Nenhum grupo encontrado. Verifique se o bot está conectado ao WhatsApp.</div>'
+      wppGroupsStatus.innerHTML = ''
+      return
+    }
+
+    const existingJids = new Set(recipientsCache.filter((r) => r.type === 'group').map((r) => r.jid))
+
+    wppGroupsList.innerHTML = ''
+    groups.sort((a, b) => a.name.localeCompare(b.name))
+
+    groups.forEach((group) => {
+      const alreadyImported = existingJids.has(group.id)
+      const label = document.createElement('label')
+      label.className = `wpp-group-item${alreadyImported ? ' already-imported' : ''}`
+
+      const checkbox = document.createElement('input')
+      checkbox.type = 'checkbox'
+      checkbox.value = group.id
+      checkbox.disabled = alreadyImported
+      checkbox.dataset.groupId = group.id
+
+      checkbox.addEventListener('change', () => {
+        label.classList.toggle('is-checked', checkbox.checked)
+        atualizarStatusImportacao()
+      })
+
+      const info = document.createElement('div')
+      info.className = 'recipient-info'
+
+      const nameEl = document.createElement('span')
+      nameEl.className = 'recipient-name'
+      nameEl.textContent = group.name
+
+      const meta = document.createElement('span')
+      meta.className = 'wpp-group-meta'
+      if (alreadyImported) {
+        meta.textContent = '✅ Já importado'
+        meta.classList.add('imported-tag')
+      } else {
+        meta.textContent = `${group.participants} membro(s)`
+      }
+
+      info.appendChild(nameEl)
+      info.appendChild(meta)
+      label.appendChild(checkbox)
+      label.appendChild(info)
+      wppGroupsList.appendChild(label)
+    })
+
+    const updatedAt = data.updatedAt ? new Date(data.updatedAt).toLocaleString('pt-BR') : ''
+    atualizarStatusImportacao(updatedAt)
+  } catch (err) {
+    wppGroupsList.innerHTML = `<div class="meta" style="padding:16px;text-align:center;color:#dc2626;">Erro ao buscar grupos: ${err.message}</div>`
+  }
+}
+
+function atualizarStatusImportacao(updatedAt) {
+  const checked = wppGroupsList.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)')
+  const total = wppGroupsList.querySelectorAll('input[type="checkbox"]:not(:disabled)')
+  const parts = []
+  if (updatedAt) parts.push(`Atualizado em ${updatedAt}`)
+  parts.push(`${checked.length} de ${total.length} disponível(is) selecionado(s)`)
+  wppGroupsStatus.innerHTML = parts.join(' · ')
+}
+
+async function confirmarImportacaoGruposWpp() {
+  const checked = wppGroupsList.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)')
+  const groupIds = Array.from(checked).map((cb) => cb.value)
+
+  if (!groupIds.length) {
+    setStatus('Selecione pelo menos um grupo para importar.', 'error')
+    return
+  }
+
+  wppGroupsConfirmImportBtn.disabled = true
+  wppGroupsConfirmImportBtn.textContent = 'Importando...'
+
+  try {
+    const res = await fetch('/api/whatsapp-groups/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupIds })
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Falha ao importar grupos.')
+
+    setStatus(data.message, 'success')
+    wppGroupsContainer.style.display = 'none'
+
+    const recipientsRes = await fetch('/api/recipients')
+    const recipientsRaw = await recipientsRes.json().catch(() => [])
+    const recipients = Array.isArray(recipientsRaw) ? recipientsRaw : []
+    recipientsCache = recipients
+    renderRecipients(recipients)
+    renderCycleRecipients()
+  } catch (err) {
+    setStatus(err.message || 'Erro ao importar grupos.', 'error')
+  } finally {
+    wppGroupsConfirmImportBtn.disabled = false
+    wppGroupsConfirmImportBtn.textContent = 'Importar selecionados'
+  }
+}
+
 function fecharModalEdicaoDiaCiclo() {
   editingCycleIndex = -1
   cycleDayModal.style.display = 'none'
@@ -1336,6 +1460,27 @@ cycleRecipDeselectAllBtn.addEventListener('click', () => {
   })
   syncCycleRecipientsToCache()
   updateCycleRecipientsSummary()
+})
+
+importWppGroupsBtn.addEventListener('click', () => {
+  abrirPainelImportarGruposWpp()
+})
+
+wppGroupsSelectAllBtn.addEventListener('click', () => {
+  const checkboxes = wppGroupsList.querySelectorAll('input[type="checkbox"]:not(:disabled)')
+  checkboxes.forEach((cb) => {
+    cb.checked = true
+    cb.closest('.wpp-group-item')?.classList.add('is-checked')
+  })
+  atualizarStatusImportacao()
+})
+
+wppGroupsConfirmImportBtn.addEventListener('click', () => {
+  confirmarImportacaoGruposWpp()
+})
+
+wppGroupsCloseBtn.addEventListener('click', () => {
+  wppGroupsContainer.style.display = 'none'
 })
 
 cancelCycleSettingsBtn.addEventListener('click', () => {

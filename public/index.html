@@ -128,9 +128,22 @@
               <p class="cycle-recipients-subtitle">Marque quem deve receber as mensagens deste ciclo. Se nenhum for marcado, será usado o destinatário padrão do sistema.</p>
             </div>
             <div class="cycle-recipients-header-actions">
+              <button id="importWppGroupsBtn" type="button" class="secondary cycle-recip-btn wpp-import-btn">📲 Importar do WhatsApp</button>
               <button id="cycleRecipSelectAllBtn" type="button" class="secondary cycle-recip-btn">Marcar todos</button>
               <button id="cycleRecipDeselectAllBtn" type="button" class="secondary cycle-recip-btn">Desmarcar todos</button>
             </div>
+          </div>
+          <div id="wppGroupsContainer" class="wpp-groups-container" style="display:none;">
+            <div class="wpp-groups-header">
+              <span class="wpp-groups-label">👥 Grupos do WhatsApp conectado</span>
+              <div class="wpp-groups-actions">
+                <button id="wppGroupsSelectAllBtn" type="button" class="secondary cycle-recip-btn">Marcar todos</button>
+                <button id="wppGroupsConfirmImportBtn" type="button" class="primary cycle-recip-btn wpp-confirm-btn">Importar selecionados</button>
+                <button id="wppGroupsCloseBtn" type="button" class="secondary cycle-recip-btn">Fechar</button>
+              </div>
+            </div>
+            <div id="wppGroupsList" class="wpp-groups-list"></div>
+            <div id="wppGroupsStatus" class="wpp-groups-status"></div>
           </div>
           <div id="cycleRecipientsList" class="cycle-recipients-list"></div>
           <div id="cycleRecipientsSummary" class="cycle-recipients-summary-bar"></div>
