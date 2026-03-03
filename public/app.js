@@ -72,6 +72,9 @@ const wppGroupsStatus = document.getElementById('wppGroupsStatus')
 const wppGroupsSelectAllBtn = document.getElementById('wppGroupsSelectAllBtn')
 const wppGroupsConfirmImportBtn = document.getElementById('wppGroupsConfirmImportBtn')
 const wppGroupsCloseBtn = document.getElementById('wppGroupsCloseBtn')
+const sidebarToggleBtn = document.getElementById('sidebarToggle')
+const sidebarEl = document.getElementById('sidebar')
+const sidebarBackdropEl = document.getElementById('sidebarBackdrop')
 
 let recipientsCache = []
 let cycleCache = []
@@ -190,6 +193,9 @@ function initSideMenu() {
       const target = item.getAttribute('data-target')
       if (!target) return
       setActiveSection(target)
+      // Close sidebar on mobile
+      if (sidebarEl) sidebarEl.classList.remove('show')
+      if (sidebarBackdropEl) sidebarBackdropEl.classList.remove('show')
     })
   })
 
@@ -1501,6 +1507,20 @@ cycleSettingsModal.addEventListener('click', (event) => {
     fecharModalConfiguracaoCiclo()
   }
 })
+
+// Mobile sidebar toggle
+if (sidebarToggleBtn) {
+  sidebarToggleBtn.addEventListener('click', () => {
+    sidebarEl?.classList.toggle('show')
+    sidebarBackdropEl?.classList.toggle('show')
+  })
+}
+if (sidebarBackdropEl) {
+  sidebarBackdropEl.addEventListener('click', () => {
+    sidebarEl?.classList.remove('show')
+    sidebarBackdropEl.classList.remove('show')
+  })
+}
 
 async function bootstrap() {
   initSideMenu()

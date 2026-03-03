@@ -1,361 +1,500 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Painel de Configuração do Bot</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <main class="container">
-      <h1>Painel de Configuração do Bot</h1>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bot Panel — Painel de Controle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div class="app-layout">
 
-      <div class="dashboard-layout">
-        <aside class="side-menu">
-          <button type="button" class="menu-item is-active" data-target="section-config">Configurações gerais</button>
-          <button type="button" class="menu-item" data-target="section-cycles">Ciclos</button>
-          <button type="button" class="menu-item" data-target="section-qr">Conexão QR</button>
-          <button type="button" class="menu-item" data-target="section-recipients">Destinatários</button>
-          <button type="button" class="menu-item" data-target="section-dispatch">Disparos</button>
+    <!-- Sidebar backdrop (mobile) -->
+    <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
 
-          <div class="side-log-card">
-            <div class="side-log-header">
-              <strong>Log</strong>
-              <button id="clearLogBtn" type="button" class="secondary">Limpar</button>
-            </div>
-            <div id="eventLog" class="event-log"></div>
-          </div>
-        </aside>
-
-        <div class="content-area">
-
-      <section class="card menu-section" id="section-config">
-        <h2>Configurações gerais</h2>
-        <p class="subtitle">Defina como o bot conecta e os limites operacionais de envio.</p>
-
-        <h3>Conexão e ambiente</h3>
-        <div class="grid">
-          <label>
-            Modo de envio
-            <select id="SEND_PROVIDER">
-              <option value="baileys">QR (Baileys)</option>
-              <option value="meta-cloud">API (Meta Cloud)</option>
-            </select>
-          </label>
-
-          <label>
-            Número do bot
-            <input id="NUMERO_BOT" type="text" placeholder="553499999999" />
-            <small>Número usado como referência no projeto.</small>
-          </label>
-
-          <label>
-            Porta do painel
-            <input id="CONFIG_PORT" type="text" placeholder="3001" />
-            <small>Porta local onde o painel web fica disponível.</small>
-          </label>
+    <!-- ===== SIDEBAR ===== -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+          <i class="bi bi-robot"></i>
         </div>
-
-        <h3>Limites de envio</h3>
-        <div class="grid">
-
-          <label>
-            Intervalo entre mensagens (segundos)
-            <input id="SEND_MIN_INTERVAL_SECONDS" type="text" placeholder="20" />
-            <small>Evita disparos em sequência muito rápida.</small>
-          </label>
-
-          <label>
-            Máximo de mensagens por hora
-            <input id="SEND_MAX_PER_HOUR" type="text" placeholder="40" />
-            <small>Controle para reduzir risco de bloqueio.</small>
-          </label>
-
-          <label>
-            Janela início (hora)
-            <input id="SEND_ALLOWED_START_HOUR" type="text" placeholder="8" />
-            <small>Hora inicial permitida para disparos automáticos.</small>
-          </label>
-
-          <label>
-            Janela fim (hora)
-            <input id="SEND_ALLOWED_END_HOUR" type="text" placeholder="20" />
-            <small>Hora final permitida para disparos automáticos.</small>
-          </label>
+        <div class="sidebar-brand-text">
+          <span class="sidebar-brand-title">Bot Panel</span>
+          <span class="sidebar-brand-subtitle">Controle de Mensagens</span>
         </div>
+      </div>
 
-        <h3>Meta Cloud (opcional)</h3>
-        <div class="grid">
-          <label>
-            Versão da API Meta
-            <input id="WA_CLOUD_API_VERSION" type="text" placeholder="v21.0" />
-            <small>Somente para modo API (Meta Cloud).</small>
-          </label>
+      <nav class="sidebar-nav">
+        <div class="sidebar-nav-label">Menu</div>
+        <button type="button" class="menu-item is-active" data-target="section-config">
+          <i class="bi bi-gear-fill"></i>
+          <span>Configurações</span>
+        </button>
+        <button type="button" class="menu-item" data-target="section-cycles">
+          <i class="bi bi-arrow-repeat"></i>
+          <span>Ciclos</span>
+        </button>
+        <button type="button" class="menu-item" data-target="section-qr">
+          <i class="bi bi-qr-code"></i>
+          <span>Conexão QR</span>
+        </button>
+        <button type="button" class="menu-item" data-target="section-recipients">
+          <i class="bi bi-people-fill"></i>
+          <span>Destinatários</span>
+        </button>
+        <button type="button" class="menu-item" data-target="section-dispatch">
+          <i class="bi bi-send-fill"></i>
+          <span>Disparos</span>
+        </button>
+      </nav>
 
-          <label>
-            Phone Number ID (Meta)
-            <input id="WA_CLOUD_PHONE_NUMBER_ID" type="text" placeholder="123456789012345" />
-          </label>
-
-          <label class="full-width">
-            Access Token (Meta)
-            <input id="WA_CLOUD_ACCESS_TOKEN" type="text" placeholder="EAA..." />
-          </label>
+      <div class="sidebar-log">
+        <div class="sidebar-log-header">
+          <span><i class="bi bi-terminal-fill"></i> Log de Eventos</span>
+          <button id="clearLogBtn" type="button" class="btn btn-sm btn-outline-light btn-clear-log">Limpar</button>
         </div>
+        <div id="eventLog" class="event-log"></div>
+      </div>
+    </aside>
 
-      </section>
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="main-content">
 
-      <section class="card menu-section" id="section-cycles">
-        <h2>Ciclos</h2>
-        <p class="subtitle meta">Configure quantos ciclos quiser e defina uma hora diferente para cada dia de cada ciclo.</p>
-        <div class="grid">
-          <label>
-            Ciclo ativo
-            <select id="cycleSelect"></select>
-            <small>O bot usa o ciclo selecionado como ativo.</small>
-          </label>
+      <!-- Top bar -->
+      <header class="topbar">
+        <button id="sidebarToggle" type="button" class="btn btn-link topbar-toggle d-lg-none">
+          <i class="bi bi-list"></i>
+        </button>
+        <h1 class="topbar-title">Painel de Configuração do Bot</h1>
+        <div class="topbar-actions">
+          <button id="reloadBtn" type="button" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-clockwise"></i> <span class="btn-label">Recarregar</span>
+          </button>
+          <button id="saveBtn" type="button" class="btn btn-sm btn-primary">
+            <i class="bi bi-check-lg"></i> <span class="btn-label">Salvar configurações</span>
+          </button>
         </div>
-        <div class="actions inline-actions">
-          <button id="addCycleBtn" type="button" class="secondary">+ Novo ciclo</button>
-          <button id="deleteCycleBtn" type="button" class="remove">Remover ciclo</button>
-        </div>
+      </header>
 
-        <!-- Painel de destinatários do ciclo -->
-        <div class="cycle-recipients-panel">
-          <div class="cycle-recipients-header">
-            <div>
-              <h3 class="cycle-recipients-title">📋 Destinatários do ciclo</h3>
-              <p class="cycle-recipients-subtitle">Marque quem deve receber as mensagens deste ciclo. Se nenhum for marcado, será usado o destinatário padrão do sistema.</p>
-            </div>
-            <div class="cycle-recipients-header-actions">
-              <button id="importWppGroupsBtn" type="button" class="secondary cycle-recip-btn wpp-import-btn">📲 Importar do WhatsApp</button>
-              <button id="cycleRecipSelectAllBtn" type="button" class="secondary cycle-recip-btn">Marcar todos</button>
-              <button id="cycleRecipDeselectAllBtn" type="button" class="secondary cycle-recip-btn">Desmarcar todos</button>
-            </div>
-          </div>
-          <div id="wppGroupsContainer" class="wpp-groups-container" style="display:none;">
-            <div class="wpp-groups-header">
-              <span class="wpp-groups-label">👥 Grupos do WhatsApp conectado</span>
-              <div class="wpp-groups-actions">
-                <button id="wppGroupsSelectAllBtn" type="button" class="secondary cycle-recip-btn">Marcar todos</button>
-                <button id="wppGroupsConfirmImportBtn" type="button" class="primary cycle-recip-btn wpp-confirm-btn">Importar selecionados</button>
-                <button id="wppGroupsCloseBtn" type="button" class="secondary cycle-recip-btn">Fechar</button>
+      <!-- Content sections -->
+      <div class="content-area">
+
+        <!-- Status -->
+        <div id="status" class="status"></div>
+
+        <!-- ===== SECTION: Configurações ===== -->
+        <section class="card panel-card menu-section is-active" id="section-config">
+          <div class="card-body">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title"><i class="bi bi-gear-fill text-primary"></i> Configurações gerais</h2>
+                <p class="section-subtitle">Defina como o bot conecta e os limites operacionais de envio.</p>
               </div>
             </div>
-            <div id="wppGroupsList" class="wpp-groups-list"></div>
-            <div id="wppGroupsStatus" class="wpp-groups-status"></div>
+
+            <h5 class="form-section-title"><i class="bi bi-plug"></i> Conexão e ambiente</h5>
+            <div class="row g-3 mb-4">
+              <div class="col-md-4">
+                <label class="form-label" for="SEND_PROVIDER">Modo de envio</label>
+                <select id="SEND_PROVIDER" class="form-select">
+                  <option value="baileys">QR (Baileys)</option>
+                  <option value="meta-cloud">API (Meta Cloud)</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="NUMERO_BOT">Número do bot</label>
+                <input id="NUMERO_BOT" type="text" class="form-control" placeholder="553499999999"/>
+                <div class="form-text">Número usado como referência no projeto.</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="CONFIG_PORT">Porta do painel</label>
+                <input id="CONFIG_PORT" type="text" class="form-control" placeholder="3001"/>
+                <div class="form-text">Porta local onde o painel web fica disponível.</div>
+              </div>
+            </div>
+
+            <h5 class="form-section-title"><i class="bi bi-speedometer2"></i> Limites de envio</h5>
+            <div class="row g-3 mb-4">
+              <div class="col-md-3">
+                <label class="form-label" for="SEND_MIN_INTERVAL_SECONDS">Intervalo (seg)</label>
+                <input id="SEND_MIN_INTERVAL_SECONDS" type="text" class="form-control" placeholder="20"/>
+                <div class="form-text">Evita disparos em sequência rápida.</div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="SEND_MAX_PER_HOUR">Máx/hora</label>
+                <input id="SEND_MAX_PER_HOUR" type="text" class="form-control" placeholder="40"/>
+                <div class="form-text">Reduz risco de bloqueio.</div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="SEND_ALLOWED_START_HOUR">Início (hora)</label>
+                <input id="SEND_ALLOWED_START_HOUR" type="text" class="form-control" placeholder="8"/>
+                <div class="form-text">Hora inicial para disparos automáticos.</div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="SEND_ALLOWED_END_HOUR">Fim (hora)</label>
+                <input id="SEND_ALLOWED_END_HOUR" type="text" class="form-control" placeholder="20"/>
+                <div class="form-text">Hora final para disparos automáticos.</div>
+              </div>
+            </div>
+
+            <h5 class="form-section-title"><i class="bi bi-cloud"></i> Meta Cloud (opcional)</h5>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" for="WA_CLOUD_API_VERSION">Versão da API Meta</label>
+                <input id="WA_CLOUD_API_VERSION" type="text" class="form-control" placeholder="v21.0"/>
+                <div class="form-text">Somente para modo API (Meta Cloud).</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="WA_CLOUD_PHONE_NUMBER_ID">Phone Number ID</label>
+                <input id="WA_CLOUD_PHONE_NUMBER_ID" type="text" class="form-control" placeholder="123456789012345"/>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="WA_CLOUD_ACCESS_TOKEN">Access Token</label>
+                <input id="WA_CLOUD_ACCESS_TOKEN" type="text" class="form-control" placeholder="EAA..."/>
+              </div>
+            </div>
           </div>
-          <div id="cycleRecipientsList" class="cycle-recipients-list"></div>
-          <div id="cycleRecipientsSummary" class="cycle-recipients-summary-bar"></div>
-        </div>
+        </section>
 
-        <div id="cycleEditorContainer" class="cycle-editor">
-          <!-- Preenchido dinamicamente por app.js -->
-        </div>
-        <div class="actions inline-actions">
-          <button id="editCycleSettingsBtn" type="button" class="secondary">Configurar ciclo</button>
-          <button id="addCycleDayBtn" type="button" class="secondary">+ Adicionar dia</button>
-          <button id="saveCycleBtn" type="button" class="primary">Salvar ciclo</button>
-        </div>
-        <div id="cycleSettingsSummary" class="meta"></div>
-      </section>
+        <!-- ===== SECTION: Ciclos ===== -->
+        <section class="card panel-card menu-section" id="section-cycles">
+          <div class="card-body">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title"><i class="bi bi-arrow-repeat text-primary"></i> Ciclos</h2>
+                <p class="section-subtitle">Configure quantos ciclos quiser e defina uma hora diferente para cada dia de cada ciclo.</p>
+              </div>
+            </div>
 
-      <section class="card menu-section" id="section-qr">
-        <h2>Conexão do Bot (QR Code)</h2>
-        <p id="qrStatus" class="subtitle">Carregando status do bot...</p>
-        <div class="actions inline-actions">
-          <button id="startBotBtn" type="button" class="primary">Iniciar Bot</button>
-          <button id="refreshQrBtn" type="button" class="secondary">Atualizar QR</button>
-          <button id="disconnectQrBtn" type="button" class="remove">Desconectar sessão</button>
-        </div>
-        <div id="qrWrap" class="qr-wrap" style="display:none;">
-          <img id="qrImage" alt="QR Code do WhatsApp" />
-        </div>
-      </section>
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label" for="cycleSelect">Ciclo ativo</label>
+                <select id="cycleSelect" class="form-select"></select>
+                <div class="form-text">O bot usa o ciclo selecionado como ativo.</div>
+              </div>
+              <div class="col-md-6 d-flex align-items-end gap-2 pb-1">
+                <button id="addCycleBtn" type="button" class="btn btn-outline-primary">
+                  <i class="bi bi-plus-lg"></i> Novo ciclo
+                </button>
+                <button id="deleteCycleBtn" type="button" class="btn btn-outline-danger">
+                  <i class="bi bi-trash3"></i> Remover
+                </button>
+              </div>
+            </div>
 
-      <section class="card menu-section" id="section-recipients">
-        <h2>Destinatários (privado e grupo)</h2>
-        <div class="grid">
-          <label>
-            Nome
-            <input id="recipientName" type="text" placeholder="Ex.: João Coordenador" />
-          </label>
+            <!-- Cycle recipients panel -->
+            <div class="cycle-recipients-panel">
+              <div class="cycle-recipients-header">
+                <div>
+                  <h5 class="cycle-recipients-title"><i class="bi bi-clipboard-check"></i> Destinatários do ciclo</h5>
+                  <p class="cycle-recipients-subtitle">Marque quem deve receber as mensagens deste ciclo. Se nenhum for marcado, será usado o destinatário padrão do sistema.</p>
+                </div>
+                <div class="cycle-recipients-header-actions">
+                  <button id="importWppGroupsBtn" type="button" class="btn btn-sm btn-success wpp-import-btn">
+                    <i class="bi bi-whatsapp"></i> Importar do WhatsApp
+                  </button>
+                  <button id="cycleRecipSelectAllBtn" type="button" class="btn btn-sm btn-outline-secondary">Marcar todos</button>
+                  <button id="cycleRecipDeselectAllBtn" type="button" class="btn btn-sm btn-outline-secondary">Desmarcar todos</button>
+                </div>
+              </div>
 
-          <label>
-            Tipo
-            <select id="recipientType">
-              <option value="private">Privado (usuário)</option>
-              <option value="group">Grupo</option>
-            </select>
-          </label>
+              <!-- WPP Groups import -->
+              <div id="wppGroupsContainer" class="wpp-groups-container" style="display:none;">
+                <div class="wpp-groups-header">
+                  <span class="wpp-groups-label"><i class="bi bi-whatsapp"></i> Grupos do WhatsApp conectado</span>
+                  <div class="wpp-groups-actions">
+                    <button id="wppGroupsSelectAllBtn" type="button" class="btn btn-sm btn-outline-success">Marcar todos</button>
+                    <button id="wppGroupsConfirmImportBtn" type="button" class="btn btn-sm btn-success wpp-confirm-btn">
+                      <i class="bi bi-download"></i> Importar selecionados
+                    </button>
+                    <button id="wppGroupsCloseBtn" type="button" class="btn btn-sm btn-outline-secondary">Fechar</button>
+                  </div>
+                </div>
+                <div id="wppGroupsList" class="wpp-groups-list"></div>
+                <div id="wppGroupsStatus" class="wpp-groups-status"></div>
+              </div>
 
-          <label>
-            Destino
-            <input id="recipientDestination" type="text" placeholder="Privado: (34) 99999-8888 | Grupo: ...@g.us" />
-            <small>Privado: padrão BR com DDD (com ou sem +55). Grupo: ID do grupo ou link.</small>
-          </label>
-        </div>
-        <div class="actions inline-actions">
-          <button id="addRecipientBtn" type="button" class="primary">Adicionar destinatário</button>
-          <button id="importRecipientsBtn" type="button" class="secondary">Importar de arquivo</button>
-          <input id="importRecipientsFile" type="file" accept=".json,.xlsx,.xls,.xml" style="display: none;" />
-        </div>
-        <div id="recipientsList" class="list"></div>
-      </section>
+              <div id="cycleRecipientsList" class="cycle-recipients-list"></div>
+              <div id="cycleRecipientsSummary" class="cycle-recipients-summary-bar"></div>
+            </div>
 
-      <section class="card menu-section" id="section-dispatch">
-        <h2>Disparo manual ou agendado</h2>
-        <p class="subtitle">Dica: marque um destinatário como padrão na lista acima para ele já vir selecionado aqui.</p>
-        <div class="grid">
-          <label>
-            Destinatário
-            <select id="dispatchRecipient" multiple size="6"></select>
-            <small>Você pode selecionar mais de um destinatário (Ctrl+clique ou Shift+clique).</small>
-          </label>
+            <!-- Cycle editor -->
+            <div id="cycleEditorContainer" class="cycle-editor"></div>
 
-            <input id="editRecipientDestination" type="text" placeholder="Privado: (34) 99999-8888 | Grupo: ...@g.us ou link" />
-            Origem da mensagem
-            <select id="dispatchSourceType">
-              <option value="cycle">Usar mensagem da Central (1 a 15)</option>
-              <option value="manual">Digitar mensagem manual</option>
-            </select>
-          </label>
+            <div class="d-flex gap-2 mt-3 flex-wrap">
+              <button id="editCycleSettingsBtn" type="button" class="btn btn-outline-secondary">
+                <i class="bi bi-sliders"></i> Configurar ciclo
+              </button>
+              <button id="addCycleDayBtn" type="button" class="btn btn-outline-primary">
+                <i class="bi bi-plus-lg"></i> Adicionar dia
+              </button>
+              <button id="saveCycleBtn" type="button" class="btn btn-primary">
+                <i class="bi bi-check-lg"></i> Salvar ciclo
+              </button>
+            </div>
+            <div id="cycleSettingsSummary" class="meta mt-2"></div>
+          </div>
+        </section>
 
-          <label id="cycleDayWrap">
-            Dia da Central de Mensagens
-            <select id="dispatchCycleDay"></select>
-          </label>
+        <!-- ===== SECTION: Conexão QR ===== -->
+        <section class="card panel-card menu-section" id="section-qr">
+          <div class="card-body">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title"><i class="bi bi-qr-code text-primary"></i> Conexão do Bot (QR Code)</h2>
+                <p id="qrStatus" class="section-subtitle">Carregando status do bot...</p>
+              </div>
+            </div>
 
-          <label>
-            Tipo de envio
-            <select id="dispatchMode">
-              <option value="manual-now">Enviar agora</option>
-              <option value="scheduled">Agendar</option>
-            </select>
-          </label>
+            <div class="d-flex gap-2 flex-wrap mb-4">
+              <button id="startBotBtn" type="button" class="btn btn-primary">
+                <i class="bi bi-play-fill"></i> Iniciar Bot
+              </button>
+              <button id="refreshQrBtn" type="button" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-clockwise"></i> Atualizar QR
+              </button>
+              <button id="disconnectQrBtn" type="button" class="btn btn-outline-danger">
+                <i class="bi bi-x-circle"></i> Desconectar sessão
+              </button>
+            </div>
 
-          <label id="sendAtWrap" style="display:none;">
-            Data/hora do agendamento
-            <input id="dispatchSendAt" type="datetime-local" step="60" />
-            <small>Selecione data e hora no calendário/relógio.</small>
-          </label>
+            <div id="qrWrap" class="qr-wrap" style="display:none;">
+              <img id="qrImage" alt="QR Code do WhatsApp" class="qr-image"/>
+            </div>
+          </div>
+        </section>
 
-          <label class="full-width">
-            Mensagem manual
-            <textarea id="dispatchMessageText" placeholder="Digite aqui uma mensagem direta..."></textarea>
-            <small>Se usar "Central", este campo será ignorado.</small>
-          </label>
-        </div>
-        <div class="actions inline-actions">
-          <button id="sendDispatchBtn" type="button" class="primary">Criar disparo</button>
-          <button id="testBotBtn" type="button" class="secondary">Testar Bot no destinatário</button>
-        </div>
-        <div id="botStatus" class="meta"></div>
-        <div id="dispatchesList" class="list"></div>
-      </section>
+        <!-- ===== SECTION: Destinatários ===== -->
+        <section class="card panel-card menu-section" id="section-recipients">
+          <div class="card-body">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title"><i class="bi bi-people-fill text-primary"></i> Destinatários</h2>
+                <p class="section-subtitle">Gerencie destinatários privados e grupos para envio de mensagens.</p>
+              </div>
+            </div>
 
-      <section class="actions">
-        <button id="reloadBtn" type="button" class="secondary">Recarregar</button>
-        <button id="saveBtn" type="button" class="primary">Salvar configurações</button>
-      </section>
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <label class="form-label" for="recipientName">Nome</label>
+                <input id="recipientName" type="text" class="form-control" placeholder="Ex.: João Coordenador"/>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="recipientType">Tipo</label>
+                <select id="recipientType" class="form-select">
+                  <option value="private">Privado (usuário)</option>
+                  <option value="group">Grupo</option>
+                </select>
+              </div>
+              <div class="col-md-5">
+                <label class="form-label" for="recipientDestination">Destino</label>
+                <input id="recipientDestination" type="text" class="form-control" placeholder="Privado: (34) 99999-8888 | Grupo: ...@g.us"/>
+                <div class="form-text">Privado: padrão BR com DDD. Grupo: ID do grupo ou link.</div>
+              </div>
+            </div>
 
-      <p id="status" class="status"></p>
-        </div>
+            <div class="d-flex gap-2 flex-wrap mb-4">
+              <button id="addRecipientBtn" type="button" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Adicionar destinatário
+              </button>
+              <button id="importRecipientsBtn" type="button" class="btn btn-outline-secondary">
+                <i class="bi bi-upload"></i> Importar de arquivo
+              </button>
+              <input id="importRecipientsFile" type="file" accept=".json,.xlsx,.xls,.xml" style="display:none;"/>
+            </div>
+
+            <div id="recipientsList" class="list"></div>
+          </div>
+        </section>
+
+        <!-- ===== SECTION: Disparos ===== -->
+        <section class="card panel-card menu-section" id="section-dispatch">
+          <div class="card-body">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title"><i class="bi bi-send-fill text-primary"></i> Disparo manual ou agendado</h2>
+                <p class="section-subtitle">Dica: marque um destinatário como padrão na lista acima para ele já vir selecionado aqui.</p>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label" for="dispatchRecipient">Destinatário</label>
+                <select id="dispatchRecipient" class="form-select" multiple size="5"></select>
+                <div class="form-text">Selecione mais de um (Ctrl+clique ou Shift+clique).</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="dispatchSourceType">Origem da mensagem</label>
+                <select id="dispatchSourceType" class="form-select">
+                  <option value="cycle">Usar mensagem da Central (1 a 15)</option>
+                  <option value="manual">Digitar mensagem manual</option>
+                </select>
+              </div>
+              <div class="col-md-4" id="cycleDayWrap">
+                <label class="form-label" for="dispatchCycleDay">Dia da Central de Mensagens</label>
+                <select id="dispatchCycleDay" class="form-select"></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="dispatchMode">Tipo de envio</label>
+                <select id="dispatchMode" class="form-select">
+                  <option value="manual-now">Enviar agora</option>
+                  <option value="scheduled">Agendar</option>
+                </select>
+              </div>
+              <div class="col-md-4" id="sendAtWrap" style="display:none;">
+                <label class="form-label" for="dispatchSendAt">Data/hora do agendamento</label>
+                <input id="dispatchSendAt" type="datetime-local" class="form-control" step="60"/>
+                <div class="form-text">Selecione data e hora.</div>
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="dispatchMessageText">Mensagem manual</label>
+                <textarea id="dispatchMessageText" class="form-control" rows="3" placeholder="Digite aqui uma mensagem direta..."></textarea>
+                <div class="form-text">Se usar "Central", este campo será ignorado.</div>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap mb-3">
+              <button id="sendDispatchBtn" type="button" class="btn btn-primary">
+                <i class="bi bi-send"></i> Criar disparo
+              </button>
+              <button id="testBotBtn" type="button" class="btn btn-outline-secondary">
+                <i class="bi bi-bug"></i> Testar Bot no destinatário
+              </button>
+            </div>
+
+            <div id="botStatus" class="meta"></div>
+            <div id="dispatchesList" class="list"></div>
+          </div>
+        </section>
+
       </div>
+
+      <!-- Footer -->
+      <footer class="app-footer">
+        <p>
+          Criado por Italo Antonio Costa Felisbino &bull;
+          <a href="https://github.com/italoantonio-dev" target="_blank" rel="noopener noreferrer">
+            <i class="bi bi-github"></i> github.com/italoantonio-dev
+          </a>
+        </p>
+      </footer>
+
     </main>
+  </div>
 
-    <footer class="container app-footer">
-      <p class="subtitle app-footer-text">
-        Criado por Italo Antonio Costa Felisbino •
-        <a href="https://github.com/italoantonio-dev" target="_blank" rel="noopener noreferrer">github.com/italoantonio-dev</a>
-      </p>
-    </footer>
-
-    <div id="recipientModal" class="modal-overlay" style="display:none;">
-      <div class="modal-card">
-        <h3>Editar destinatário</h3>
-        <div class="grid">
-          <label>
-            Nome
-            <input id="editRecipientName" type="text" placeholder="Ex.: Loja Centro" />
-          </label>
-
-          <label>
-            Tipo
-            <select id="editRecipientType">
+  <!-- ===== MODAL: Editar destinatário ===== -->
+  <div id="recipientModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-header-custom">
+        <h5><i class="bi bi-pencil-square"></i> Editar destinatário</h5>
+        <button type="button" class="btn-close-modal" onclick="document.getElementById('cancelEditRecipientBtn').click()">&times;</button>
+      </div>
+      <div class="modal-body-custom">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="editRecipientName">Nome</label>
+            <input id="editRecipientName" type="text" class="form-control" placeholder="Ex.: Loja Centro"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="editRecipientType">Tipo</label>
+            <select id="editRecipientType" class="form-select">
               <option value="private">Privado (usuário)</option>
               <option value="group">Grupo</option>
             </select>
-          </label>
-
-          <label class="full-width">
-            Destino
-            <input id="editRecipientDestination" type="text" placeholder="Privado: 553499999999 | Grupo: ...@g.us ou link" />
-          </label>
-        </div>
-        <div class="actions">
-          <button id="cancelEditRecipientBtn" type="button" class="secondary">Cancelar</button>
-          <button id="saveEditRecipientBtn" type="button" class="primary">Salvar alterações</button>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="editRecipientDestination">Destino</label>
+            <input id="editRecipientDestination" type="text" class="form-control" placeholder="Privado: 553499999999 | Grupo: ...@g.us ou link"/>
+          </div>
         </div>
       </div>
+      <div class="modal-footer-custom">
+        <button id="cancelEditRecipientBtn" type="button" class="btn btn-outline-secondary">Cancelar</button>
+        <button id="saveEditRecipientBtn" type="button" class="btn btn-primary">
+          <i class="bi bi-check-lg"></i> Salvar alterações
+        </button>
+      </div>
     </div>
+  </div>
 
-    <div id="cycleDayModal" class="modal-overlay" style="display:none;">
-      <div class="modal-card">
-        <h3>Editar dia do ciclo</h3>
-        <div class="grid">
-          <label class="full-width">
-            Mensagem
-            <textarea id="editCycleMessage" placeholder="Mensagem do dia..."></textarea>
-          </label>
-          <label>
-            Horário (HH:mm)
-            <input id="editCycleTime" type="time" />
-          </label>
-          <label>
-            Status do dia
-            <select id="editCycleDayIsActive">
+  <!-- ===== MODAL: Editar dia do ciclo ===== -->
+  <div id="cycleDayModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-header-custom">
+        <h5><i class="bi bi-calendar-event"></i> Editar dia do ciclo</h5>
+        <button type="button" class="btn-close-modal" onclick="document.getElementById('cancelEditCycleDayBtn').click()">&times;</button>
+      </div>
+      <div class="modal-body-custom">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="editCycleMessage">Mensagem</label>
+            <textarea id="editCycleMessage" class="form-control" rows="4" placeholder="Mensagem do dia..."></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="editCycleTime">Horário (HH:mm)</label>
+            <input id="editCycleTime" type="time" class="form-control"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="editCycleDayIsActive">Status do dia</label>
+            <select id="editCycleDayIsActive" class="form-select">
               <option value="true">Ativo</option>
               <option value="false">Inativo</option>
             </select>
-          </label>
-        </div>
-        <div class="actions">
-          <button id="cancelEditCycleDayBtn" type="button" class="secondary">Cancelar</button>
-          <button id="saveEditCycleDayBtn" type="button" class="primary">Salvar alterações</button>
+          </div>
         </div>
       </div>
+      <div class="modal-footer-custom">
+        <button id="cancelEditCycleDayBtn" type="button" class="btn btn-outline-secondary">Cancelar</button>
+        <button id="saveEditCycleDayBtn" type="button" class="btn btn-primary">
+          <i class="bi bi-check-lg"></i> Salvar alterações
+        </button>
+      </div>
     </div>
+  </div>
 
-    <div id="cycleSettingsModal" class="modal-overlay" style="display:none;">
-      <div class="modal-card">
-        <h3>Configurações do ciclo</h3>
-        <div class="grid">
-          <label>
-            Data de início do ciclo
-            <input id="cycleStartDate" type="date" />
-          </label>
-          <label>
-            Status do ciclo
-            <select id="cycleIsActive">
+  <!-- ===== MODAL: Configurações do ciclo ===== -->
+  <div id="cycleSettingsModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-header-custom">
+        <h5><i class="bi bi-sliders"></i> Configurações do ciclo</h5>
+        <button type="button" class="btn-close-modal" onclick="document.getElementById('cancelCycleSettingsBtn').click()">&times;</button>
+      </div>
+      <div class="modal-body-custom">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="cycleStartDate">Data de início</label>
+            <input id="cycleStartDate" type="date" class="form-control"/>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="cycleIsActive">Status do ciclo</label>
+            <select id="cycleIsActive" class="form-select">
               <option value="true">Ativo</option>
               <option value="false">Inativo</option>
             </select>
-          </label>
-          <label>
-            Repetir cada mensagem por (dias)
-            <input id="cycleRepeatInterval" type="number" min="1" max="365" value="1" />
-            <small style="color:var(--muted);font-size:0.82em;">1 = avança todo dia · 3 = repete a mesma mensagem por 3 dias</small>
-          </label>
-        </div>
-        <div class="actions">
-          <button id="cancelCycleSettingsBtn" type="button" class="secondary">Cancelar</button>
-          <button id="saveCycleSettingsBtn" type="button" class="primary">Salvar configurações</button>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="cycleRepeatInterval">Repetir (dias)</label>
+            <input id="cycleRepeatInterval" type="number" class="form-control" min="1" max="365" value="1"/>
+            <div class="form-text">1 = avança todo dia · 3 = repete por 3 dias</div>
+          </div>
         </div>
       </div>
+      <div class="modal-footer-custom">
+        <button id="cancelCycleSettingsBtn" type="button" class="btn btn-outline-secondary">Cancelar</button>
+        <button id="saveCycleSettingsBtn" type="button" class="btn btn-primary">
+          <i class="bi bi-check-lg"></i> Salvar configurações
+        </button>
+      </div>
     </div>
+  </div>
 
-    <script src="runtime-config.js"></script>
-    <script src="app.js"></script>
-  </body>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="runtime-config.js"></script>
+  <script src="app.js"></script>
+</body>
 </html>
