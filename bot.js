@@ -358,7 +358,7 @@ function agendarCronsUmaVez() {
 
   cronJobsIniciados = true
 
-  cron.schedule('0 * * * *', async () => {
+  cron.schedule('* * * * *', async () => {
     if (isMetaCloudMode()) {
       return
     }
