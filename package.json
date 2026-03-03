@@ -11,7 +11,8 @@
     "config": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-config.ps1",
     "_config": "node config-server.js",
     "setup": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-deps.ps1",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "author": "Italo Antonio Costa Felisbino",
   "repository": {
@@ -43,6 +44,7 @@
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "vitest": "^4.0.18"
   }
 }
