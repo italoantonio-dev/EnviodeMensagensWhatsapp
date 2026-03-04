@@ -91,6 +91,27 @@ let startBotRequestInFlight = false
 const configuredApiBaseUrl = ((window.APP_API_BASE_URL || '').toString().trim()).replace(/\/$/, '')
 const nativeFetch = window.fetch.bind(window)
 
+// ── Performance: Debounce utility ─────────────────────────
+function debounce(fn, ms = 300) {
+  let timer
+  return (...args) => {
+    clearTimeout(timer)
+    timer = setTimeout(() => fn(...args), ms)
+  }
+}
+
+// ── Performance: Request dedup/cache ──────────────────────
+const _inflight = new Map()
+function deduplicatedFetch(url, options) {
+  const key = `${(options?.method || 'GET').toUpperCase()}:${url}`
+  if (!options?.body && _inflight.has(key)) {
+    return _inflight.get(key)
+  }
+  const promise = nativeFetch(withApiBase(url), options).finally(() => _inflight.delete(key))
+  if (!options?.body) _inflight.set(key, promise)
+  return promise
+}
+
 function withApiBase(input) {
   if (!configuredApiBaseUrl) {
     return input

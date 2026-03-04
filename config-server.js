@@ -7,6 +7,11 @@ import { fileURLToPath } from 'url'
 import fileUpload from 'express-fileupload'
 import XLSX from 'xlsx'
 import xml2js from 'xml2js'
+import helmet from 'helmet'
+import cors from 'cors'
+import rateLimit from 'express-rate-limit'
+import compression from 'compression'
+import { logger } from './logger.js'
 import {
   recipientsDb,
   dispatchesDb,
@@ -28,6 +33,7 @@ const __dirname = path.dirname(__filename)
 const app = express()
 const PORT = Number(process.env.PORT || process.env.CONFIG_PORT || 3001)
 const APP_WEB_ORIGIN = (process.env.APP_WEB_ORIGIN || '*').trim() || '*'
+const startedAt = new Date()
 
 const ENV_PATH = path.join(__dirname, '.env')
 const ENV_EXAMPLE_PATH = path.join(__dirname, 'env-example')
@@ -389,20 +395,99 @@ async function sincronizarBancos() {
 }
 
 app.use(express.json({ limit: '1mb' }))
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', APP_WEB_ORIGIN)
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(204)
-    return
+// ── Security ──────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false
+}))
+
+app.use(cors({
+  origin: APP_WEB_ORIGIN === '*' ? true : APP_WEB_ORIGIN.split(',').map(o => o.trim()),
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400
+}))
+
+// Rate limiting — global
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: 'Muitas requisições. Tente novamente em alguns minutos.' }
+})
+app.use('/api', globalLimiter)
+
+// Rate limiting — write endpoints (stricter)
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: 'Limite de escrita atingido. Aguarde 1 minuto.' }
+})
+app.use('/api/config', writeLimiter)
+app.use('/api/recipients', writeLimiter)
+app.use('/api/dispatches', writeLimiter)
+app.use('/api/cycle', writeLimiter)
+app.use('/api/cycles', writeLimiter)
+app.use('/api/bot-start', writeLimiter)
+app.use('/api/bot-disconnect', writeLimiter)
+
+// Rate limiting — import (file uploads)
+const importLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: 'Limite de importação atingido. Aguarde 1 minuto.' }
+})
+app.use('/api/import-recipients', importLimiter)
+
+// ── Performance ───────────────────────────────────────────
+app.use(compression())
+
+// Static files with long-term caching for assets
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1d',
+  etag: true,
+  lastModified: true,
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache')
+    }
   }
+}))
 
+app.use(fileUpload({ limits: { fileSize: 50 * 1024 * 1024 } }))
+
+// ── Request logging ───────────────────────────────────────
+app.use((req, res, next) => {
+  const start = Date.now()
+  res.on('finish', () => {
+    const duration = Date.now() - start
+    const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info'
+    logger[level](`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`, {
+      method: req.method,
+      url: req.originalUrl,
+      status: res.statusCode,
+      duration
+    })
+  })
   next()
 })
-app.use(express.static(path.join(__dirname, 'public')))
-app.use(fileUpload({ limits: { fileSize: 50 * 1024 * 1024 } }))
+
+// ── API no-cache headers ──────────────────────────────────
 app.use('/api', (req, _res, next) => {
   _res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
   _res.setHeader('Pragma', 'no-cache')
@@ -410,7 +495,7 @@ app.use('/api', (req, _res, next) => {
   sincronizarBancos()
     .then(() => next())
     .catch((err) => {
-      console.log('Falha ao sincronizar banco em memória:', err.message)
+      logger.error('Falha ao sincronizar banco em memória:', { error: err.message })
       next()
     })
 })
@@ -1100,8 +1185,41 @@ app.post('/api/config', (req, res) => {
   res.json({ ok: true, message: 'Configurações salvas com sucesso.' })
 })
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true })
+app.get('/api/health', async (_req, res) => {
+  const uptime = Math.floor((Date.now() - startedAt.getTime()) / 1000)
+  const mem = process.memoryUsage()
+
+  let dbOk = true
+  try {
+    await recipientsDb.count({})
+  } catch {
+    dbOk = false
+  }
+
+  let botConnected = false
+  try {
+    if (fs.existsSync(BOT_STATUS_PATH)) {
+      const status = JSON.parse(fs.readFileSync(BOT_STATUS_PATH, 'utf-8'))
+      botConnected = Boolean(status.connected)
+    }
+  } catch { /* ignore */ }
+
+  res.json({
+    ok: true,
+    version: '1.0.0',
+    uptime,
+    uptimeHuman: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${uptime % 60}s`,
+    startedAt: startedAt.toISOString(),
+    database: dbOk ? 'connected' : 'error',
+    bot: botConnected ? 'connected' : 'disconnected',
+    memory: {
+      rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
+      heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)}MB`
+    },
+    nodeVersion: process.version,
+    platform: process.platform
+  })
 })
 
 app.get('/api/cycle', (_req, res) => {
@@ -1276,7 +1394,34 @@ app.delete('/api/cycles/:cycleId', (req, res) => {
 initDatabase().then(async () => {
   await migrarDestinatariosPrivadosPadraoBr()
   ensureBotStartedOnBoot()
+
+  // ── Global error handler ──────────────────────────────────
+  app.use((err, _req, res, _next) => {
+    logger.error('Erro não tratado no servidor:', { error: err.message, stack: err.stack })
+    res.status(500).json({ ok: false, message: 'Erro interno do servidor.' })
+  })
+
+  // ── Graceful shutdown ─────────────────────────────────────
+  const shutdown = (signal) => {
+    logger.info(`Sinal ${signal} recebido. Encerrando servidor...`)
+    const current = readBotProcessMeta()
+    if (processIsRunning(current.pid)) {
+      stopBotProcess(current.pid)
+    }
+    process.exit(0)
+  }
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
+
+  process.on('uncaughtException', (err) => {
+    logger.error('Exceção não capturada:', { error: err.message, stack: err.stack })
+  })
+
+  process.on('unhandledRejection', (reason) => {
+    logger.error('Promise rejeitada sem tratamento:', { reason: String(reason) })
+  })
+
   app.listen(PORT, () => {
-    console.log(`Painel de configuração disponível em http://localhost:${PORT}`)
+    logger.info(`Painel de configuração disponível em http://localhost:${PORT}`)
   })
 })
