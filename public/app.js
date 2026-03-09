@@ -85,7 +85,7 @@ let currentCycleName = ''
 let editingRecipientId = ''
 let editingCycleIndex = -1
 const knownBotEventIds = new Set()
-const BOT_POLL_INTERVAL_MS = 2000
+const BOT_POLL_INTERVAL_MS = 5000
 let startBotRequestInFlight = false
 
 const configuredApiBaseUrl = ((window.APP_API_BASE_URL || '').toString().trim()).replace(/\/$/, '')
@@ -677,6 +677,23 @@ function atualizarVisibilidadeModo() {
     qrStatusEl.textContent = 'Modo API ativo. QR não é necessário.'
     qrWrapEl.style.display = 'none'
   }
+}
+
+function atualizarQrDeStatus(status) {
+  if (modoApiSelecionado()) return
+  if (status.connected) {
+    qrStatusEl.textContent = '✅ WhatsApp conectado.'
+    qrWrapEl.style.display = 'none'
+    return
+  }
+  if (status.qrDataUrl) {
+    qrStatusEl.textContent = 'Escaneie este QR com o WhatsApp para conectar o bot.'
+    qrImageEl.src = status.qrDataUrl
+    qrWrapEl.style.display = 'flex'
+    return
+  }
+  qrStatusEl.textContent = 'QR ainda não gerado. Inicie o bot e clique em atualizar.'
+  qrWrapEl.style.display = 'none'
 }
 
 async function carregarQrBot() {
@@ -1552,10 +1569,10 @@ async function bootstrap() {
   cycleDayWrap.style.display = dispatchSourceType.value === 'cycle' ? 'block' : 'none'
 
   setInterval(async () => {
-    await carregarQrBot()
     const botStatusResponse = await fetch(`/api/bot-status?t=${Date.now()}`, { cache: 'no-store' })
     const botStatus = await botStatusResponse.json()
     renderBotStatus(botStatus)
+    atualizarQrDeStatus(botStatus)
   }, BOT_POLL_INTERVAL_MS)
 }
 
