@@ -384,7 +384,7 @@ function agendarCronsUmaVez() {
   }, { timezone: BLUE_STAR_TIMEZONE })
 }
 
-async function enviarCicloSeNecessario(sock) {
+async function enviarCicloSeNecessario(sock, ignorarHora = false) {
   const cycle = loadCycleConfig()
   if (!cycle.length) {
     return
@@ -413,7 +413,7 @@ async function enviarCicloSeNecessario(sock) {
   const horaAtualStr = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
 
   // Verifica se a hora atual corresponde à hora configurada para este dia
-  if (horaAtualStr !== itemCiclo.timeHHmm) {
+  if (!ignorarHora && horaAtualStr !== itemCiclo.timeHHmm) {
     return
   }
 
@@ -495,6 +495,47 @@ async function enviarCicloSeNecessario(sock) {
   } catch (err) {
     salvarStatusBot({ lastError: `Falha ao enviar ciclo: ${err.message}` })
     throw err
+  }
+}
+
+async function recuperarCicloAtrasado(sock) {
+  if (isMetaCloudMode()) return
+  const cycle = loadCycleConfig()
+  if (!cycle.length) return
+
+  const cycleSettings = loadCycleSettings()
+  if (!cycleSettings.isActive) return
+
+  const diaDoCiclo = obterDiaDoCicloAtual()
+  if (diaDoCiclo === null) return
+
+  const itemCiclo = obterMensagemDiaCiclo(diaDoCiclo)
+  if (!itemCiclo || itemCiclo.isActive === false) return
+
+  const agora = toZonedTime(new Date(), BLUE_STAR_TIMEZONE)
+  const horaAtualStr = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
+
+  // Só recupera se o horário configurado já passou hoje
+  if (horaAtualStr < itemCiclo.timeHHmm) return
+
+  const hoje = format(startOfDay(agora), 'yyyy-MM-dd')
+  const chaveDiario = `ciclo-${hoje}-${diaDoCiclo}`
+  const statusBot = lerStatusBot()
+  const ultimoEnvioDiario = statusBot?.lastCycleSent || {}
+
+  if (ultimoEnvioDiario[chaveDiario]) return // já enviado
+
+  console.log(`Ciclo Dia ${diaDoCiclo + 1}: horário ${itemCiclo.timeHHmm} já passou e mensagem não foi enviada. Enviando agora...`)
+  salvarStatusBot({
+    logMessage: `Ciclo Dia ${diaDoCiclo + 1}: recuperando envio atrasado (configurado para ${itemCiclo.timeHHmm}).`,
+    logLevel: 'warn',
+    logSource: 'bot'
+  })
+
+  try {
+    await enviarCicloSeNecessario(sock, true)
+  } catch (err) {
+    console.log('Falha ao recuperar ciclo atrasado:', err.message)
   }
 }
 
@@ -965,6 +1006,11 @@ async function start() {
           await buscarGruposWhatsApp(sock)
         } catch (err) {
           console.log('Falha ao buscar grupos na conexão:', err.message)
+        }
+        try {
+          await recuperarCicloAtrasado(sock)
+        } catch (err) {
+          console.log('Falha ao recuperar ciclo atrasado:', err.message)
         }
         try {
           await processarFilaDisparos(sock)
