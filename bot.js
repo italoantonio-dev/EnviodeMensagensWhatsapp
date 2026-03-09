@@ -882,8 +882,10 @@ async function start() {
       browser: ['BlueStarBot', 'Chrome', '1.0.0'],
       version: versaoWa || undefined,
       connectTimeoutMs: 30000,
-      keepAliveIntervalMs: 10000,
-      qrTimeout: 60000
+      keepAliveIntervalMs: 25000,
+      qrTimeout: 60000,
+      markOnlineOnConnect: false,
+      syncFullHistory: false
     })
 
     sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
