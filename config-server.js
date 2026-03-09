@@ -948,6 +948,10 @@ app.post('/api/dispatches', async (req, res) => {
   res.json({ ok: true, items, createdCount: items.length })
 })
 
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, uptime: process.uptime() })
+})
+
 app.get('/api/bot-status', (_req, res) => {
   if (!fs.existsSync(BOT_STATUS_PATH)) {
     res.json({

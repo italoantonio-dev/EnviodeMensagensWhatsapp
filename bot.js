@@ -16,6 +16,10 @@ const BOT_COMMAND_ARQUIVO = './data/bot-command.json'
 const WPP_GROUPS_ARQUIVO = './data/whatsapp-groups.json'
 const BAILEYS_AUTH_DIR = './baileys-auth'
 const MAX_STATUS_EVENTS = 200
+// Atraso na primeira conexão para garantir que a instância anterior do Railway
+// já foi encerrada antes de abrirmos uma nova sessão (evita 440 no redeploy)
+const BAILEYS_BOOT_DELAY_MS = parseIntEnvRaw('BAILEYS_BOOT_DELAY_MS', 5000, 0, 30000)
+let isFirstStart = true
 let reconnectScheduled = false
 let reconnectTentativas = 0
 let authResetadoNoCiclo = false
@@ -26,6 +30,14 @@ let processandoFila = false
 let ultimoComandoProcessadoEm = ''
 let lastConnectionOpenedAtMs = 0
 let rapidDisconnects = 0
+
+function parseIntEnvRaw(name, defaultValue, min, max) {
+  const raw = (process.env[name] || '').trim()
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed)) return defaultValue
+  if (parsed < min || parsed > max) return defaultValue
+  return Math.floor(parsed)
+}
 
 const SEND_PROVIDER = (process.env.SEND_PROVIDER || 'baileys').trim().toLowerCase()
 const WA_CLOUD_API_VERSION = (process.env.WA_CLOUD_API_VERSION || 'v21.0').trim()
@@ -861,6 +873,16 @@ async function start() {
 
   startingBaileys = true
 
+  // Delay de boot: na primeira inicialização aguarda para a instância anterior do
+  // Railway terminar antes de abrir nova sessão WA (evita 440 no redeploy)
+  if (isFirstStart && BAILEYS_BOOT_DELAY_MS > 0) {
+    isFirstStart = false
+    console.log(`Aguardando ${BAILEYS_BOOT_DELAY_MS / 1000}s antes de conectar (delay de boot)...`)
+    await new Promise((resolve) => setTimeout(resolve, BAILEYS_BOOT_DELAY_MS))
+  } else {
+    isFirstStart = false
+  }
+
   try {
     const { state, saveCreds } = await useMultiFileAuthState(BAILEYS_AUTH_DIR)
     let versaoWa = null
@@ -964,13 +986,31 @@ async function start() {
               start()
             }, 2000)
           }
+        } else if (isConflict440) {
+          // 440: outra sessão aberta (redeploy ou conflito real).
+          // Espera longa para a sessão conflitante fechar antes de tentar de novo.
+          if (!reconnectScheduled) {
+            reconnectScheduled = true
+            rapidDisconnects = 0 // reseta para não acumular entre tentativas distintas
+            const esperaMs = conflitoPersistente ? 60000 : 15000
+            console.log(`Conflito de sessão 440${conflitoPersistente ? ' persistente' : ''}. Aguardando ${esperaMs / 1000}s para reconectar...`)
+            salvarStatusBot({
+              logMessage: `Conflito 440: aguardando ${esperaMs / 1000}s para reconectar.`,
+              logLevel: 'warn',
+              logSource: 'connection'
+            })
+            setTimeout(() => {
+              reconnectScheduled = false
+              start()
+            }, esperaMs)
+          }
         } else if (statusCode !== DisconnectReason.loggedOut) {
           if (!reconnectScheduled) {
             reconnectScheduled = true
             reconnectTentativas += 1
-            const baseMs = conflitoPersistente ? 15000 : 3000
-            const stepMs = conflitoPersistente ? 4000 : 2000
-            const maxMs = conflitoPersistente ? 45000 : 20000
+            const baseMs = 3000
+            const stepMs = 2000
+            const maxMs = 20000
             const esperaMs = Math.min(baseMs + (reconnectTentativas - 1) * stepMs, maxMs)
             console.log(`Conexão caiu (código: ${statusCode || 'desconhecido'}). Nova tentativa em ${Math.floor(esperaMs / 1000)}s...`)
             setTimeout(() => {
@@ -989,7 +1029,10 @@ async function start() {
           }
         }
       } else if (connection === 'open') {
-        reconnectTentativas = 0
+        // Se a sessão anterior durou mais de 60s, é considerada estável: zera tentativas
+        if (lastConnectionOpenedAtMs > 0 && (Date.now() - lastConnectionOpenedAtMs) > 60000) {
+          reconnectTentativas = 0
+        }
         authResetadoNoCiclo = false
         rapidDisconnects = 0
         lastConnectionOpenedAtMs = Date.now()

@@ -4,7 +4,11 @@
     "builder": "dockerfile"
   },
   "deploy": {
-    "startCommand": "node config-server.js"
+    "startCommand": "node config-server.js",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 30,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
   },
   "volumes": [
     {
