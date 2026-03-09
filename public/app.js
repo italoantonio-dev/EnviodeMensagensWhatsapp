@@ -85,8 +85,12 @@ let currentCycleName = ''
 let editingRecipientId = ''
 let editingCycleIndex = -1
 const knownBotEventIds = new Set()
-const BOT_POLL_INTERVAL_MS = 5000
+const BOT_POLL_CONNECTED_MS = 15000    // intervalo quando conectado e estável
+const BOT_POLL_DISCONNECTED_MS = 5000  // intervalo quando desconectado / aguardando QR
 let startBotRequestInFlight = false
+let _pollBotInFlight = false
+let _lastBotConnected = null
+let _pollTimer = null
 
 const configuredApiBaseUrl = ((window.APP_API_BASE_URL || '').toString().trim()).replace(/\/$/, '')
 const nativeFetch = window.fetch.bind(window)
@@ -1560,6 +1564,34 @@ if (sidebarBackdropEl) {
   })
 }
 
+async function tickPollBot() {
+  if (_pollBotInFlight) return
+  if (document.visibilityState === 'hidden') {
+    agendarProximoPoll()
+    return
+  }
+
+  _pollBotInFlight = true
+  try {
+    const botStatusResponse = await fetch(`/api/bot-status?t=${Date.now()}`, { cache: 'no-store' })
+    const botStatus = await botStatusResponse.json()
+    renderBotStatus(botStatus)
+    atualizarQrDeStatus(botStatus)
+    _lastBotConnected = Boolean(botStatus.connected)
+  } catch {
+    // falha de rede: não atualiza o intervalo
+  } finally {
+    _pollBotInFlight = false
+    agendarProximoPoll()
+  }
+}
+
+function agendarProximoPoll() {
+  clearTimeout(_pollTimer)
+  const intervalo = _lastBotConnected ? BOT_POLL_CONNECTED_MS : BOT_POLL_DISCONNECTED_MS
+  _pollTimer = setTimeout(tickPollBot, intervalo)
+}
+
 async function bootstrap() {
   initSideMenu()
   await carregarConfiguracoes()
@@ -1568,12 +1600,15 @@ async function bootstrap() {
   await carregarQrBot()
   cycleDayWrap.style.display = dispatchSourceType.value === 'cycle' ? 'block' : 'none'
 
-  setInterval(async () => {
-    const botStatusResponse = await fetch(`/api/bot-status?t=${Date.now()}`, { cache: 'no-store' })
-    const botStatus = await botStatusResponse.json()
-    renderBotStatus(botStatus)
-    atualizarQrDeStatus(botStatus)
-  }, BOT_POLL_INTERVAL_MS)
+  // Retoma o polling imediatamente ao voltar para a aba
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      clearTimeout(_pollTimer)
+      tickPollBot()
+    }
+  })
+
+  agendarProximoPoll()
 }
 
 bootstrap()
