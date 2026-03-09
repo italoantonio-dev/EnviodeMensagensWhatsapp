@@ -885,6 +885,7 @@ async function start() {
         })
 
         const isConflict440 = Number(statusCode) === 440
+        const isRestartRequired = statusCode === DisconnectReason.restartRequired || Number(statusCode) === 515
         const precisaResetAuth =
           statusCode === DisconnectReason.loggedOut ||
           statusCode === DisconnectReason.badSession
@@ -909,7 +910,18 @@ async function start() {
           })
         }
 
-        if (statusCode !== DisconnectReason.loggedOut) {
+        if (isRestartRequired) {
+          // Servidor pediu reinício (515): reconectar rapidamente sem penalizar o backoff
+          if (!reconnectScheduled) {
+            reconnectScheduled = true
+            reconnectTentativas = 0
+            console.log('Servidor WhatsApp solicitou reinício (515). Reconectando em 2s...')
+            setTimeout(() => {
+              reconnectScheduled = false
+              start()
+            }, 2000)
+          }
+        } else if (statusCode !== DisconnectReason.loggedOut) {
           if (!reconnectScheduled) {
             reconnectScheduled = true
             reconnectTentativas += 1
