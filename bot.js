@@ -1004,6 +1004,26 @@ async function start() {
         })
       }
     })
+  } catch (err) {
+    const message = err?.message || 'erro desconhecido'
+    console.log('Falha ao inicializar sessão Baileys:', message)
+    salvarStatusBot({
+      connected: false,
+      lastError: `Falha ao inicializar sessão Baileys: ${message}`,
+      logMessage: `Falha ao inicializar sessão Baileys: ${message}`,
+      logLevel: 'error',
+      logSource: 'connection'
+    })
+    if (!reconnectScheduled) {
+      reconnectScheduled = true
+      reconnectTentativas += 1
+      const esperaMs = Math.min(3000 + (reconnectTentativas - 1) * 2000, 20000)
+      console.log(`Reagendando reconexão em ${Math.floor(esperaMs / 1000)}s...`)
+      setTimeout(() => {
+        reconnectScheduled = false
+        start()
+      }, esperaMs)
+    }
   } finally {
     startingBaileys = false
   }

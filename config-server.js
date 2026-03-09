@@ -1395,6 +1395,20 @@ initDatabase().then(async () => {
   await migrarDestinatariosPrivadosPadraoBr()
   ensureBotStartedOnBoot()
 
+  // Watchdog: reinicia o bot automaticamente se o processo morrer
+  setInterval(() => {
+    try {
+      const current = readBotProcessMeta()
+      if (!processIsRunning(current.pid)) {
+        const pid = startBotProcess()
+        logger.warn(`Watchdog: bot reiniciado automaticamente (PID: ${pid}).`)
+        console.log(`Watchdog: bot reiniciado automaticamente (PID: ${pid}).`)
+      }
+    } catch (err) {
+      logger.error(`Watchdog: falha ao verificar/reiniciar bot: ${err.message}`)
+    }
+  }, 30000)
+
   // ── Global error handler ──────────────────────────────────
   app.use((err, _req, res, _next) => {
     logger.error('Erro não tratado no servidor:', { error: err.message, stack: err.stack })
